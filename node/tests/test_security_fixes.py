@@ -45,20 +45,22 @@ def test_oversized_params_rejected():
 
 def test_unsupported_action_must_have_empty_params():
     with pytest.raises(ValueError):
-        Node.validate_params(claim(action="x.post.publish", params={"text": "hello"}))
-    Node.validate_params(claim(action="x.post.publish", params={}))
+        Node.validate_params(claim(action="gmail.message.send", params={"text": "hello"}))
+    Node.validate_params(claim(action="gmail.message.send", params={}))
 
 
 # -- F2 + F7: rate limiting, body cap, headers ---------------------------------------------------------------------
 class FakeStore:
     def __init__(self, allow_after: int):
         self.calls, self.allow_after = 0, allow_after
+        self.buckets: list[str] = []
 
     async def workspace_for_key(self, key):
         return "ws-1" if key == "good" else None
 
     async def rate_take(self, bucket, *, per_minute):
         self.calls += 1
+        self.buckets.append(bucket)
         return self.calls <= self.allow_after
 
     async def claim_status(self, ws, cid):
@@ -96,6 +98,51 @@ def test_public_receipt_reads_are_rate_limited_per_ip():
     c, _ = client(allow_after=1)
     assert c.get("/v1/receipts/rcpt_x").status_code == 404
     assert c.get("/v1/receipts/rcpt_x").status_code == 429
+
+
+# -- receipts: per-key rate limit when a valid key is presented (lane: list-claims addition B) -----------------------
+def test_authed_receipt_reads_use_a_key_bucket_not_the_ip_bucket():
+    c, store = client()
+    c.get("/v1/receipts/rcpt_x", headers={"Authorization": "Bearer good"})
+    assert len(store.buckets) == 1
+    assert store.buckets[0].startswith("key:") and not store.buckets[0].startswith("ip:")
+
+
+def test_two_resolvable_keys_get_separate_buckets():
+    class TwoKeyStore:
+        def __init__(self):
+            self.buckets: list[str] = []
+
+        async def workspace_for_key(self, key):
+            return {"good": "ws-1", "also-good": "ws-2"}.get(key)
+
+        async def rate_take(self, bucket, *, per_minute):
+            self.buckets.append(bucket)
+            return True
+
+        async def claim_status(self, ws, cid):
+            return {"claim_id": cid, "state": "queued"}
+
+        async def receipt_with_proof(self, rid, log_id):
+            return None
+
+    store = TwoKeyStore()
+    node = FakeNode(store)
+
+    async def get_node():
+        return node
+
+    c = TestClient(create_app(get_node, log_id="x", tick_enabled=lambda: False))
+    c.get("/v1/receipts/rcpt_x", headers={"Authorization": "Bearer good"})
+    c.get("/v1/receipts/rcpt_x", headers={"Authorization": "Bearer also-good"})
+    assert len(store.buckets) == 2 and store.buckets[0] != store.buckets[1]
+    assert all(b.startswith("key:") for b in store.buckets)
+
+
+def test_unresolvable_key_falls_back_to_ip_bucket():
+    c, store = client()
+    c.get("/v1/receipts/rcpt_x", headers={"Authorization": "Bearer nope"})
+    assert len(store.buckets) == 1 and store.buckets[0].startswith("ip:")
 
 
 def test_security_headers_and_no_store():

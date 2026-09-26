@@ -1,6 +1,7 @@
 """Orchestration: check a claim → decide → sign → record → alert. Used by both the API (first check inline) and the tick."""
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -62,8 +63,8 @@ class Node:
             verifier_id, version, tolerance = claim.action, "0", timedelta(0)
         else:
             verifier_id, version, tolerance = spec.action, spec.version, spec.tolerance
-            creds = await self.connections.credentials(claim.workspace_id, spec.provider) if spec.provider else None
             try:
+                creds = await _credentials(self.connections, claim, spec.provider) if spec.provider else None
                 result = await spec.run(claim, creds, self.http)
             except Exception as exc:  # a verifier bug must never pass a claim
                 result = exc
@@ -103,6 +104,21 @@ class Node:
             except Exception as exc:
                 await self.store.mark_alert(a["alert_id"], False, type(exc).__name__)
         return sent
+
+
+def _accepts_target(store) -> bool:
+    """Whether `store.credentials` takes a `target` argument. Stores written before it existed take two."""
+    try:
+        params = inspect.signature(store.credentials).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(p.name == "target" or p.kind is inspect.Parameter.VAR_KEYWORD for p in params)
+
+
+async def _credentials(store, claim: Claim, provider: str):
+    if _accepts_target(store):
+        return await store.credentials(claim.workspace_id, provider, target=claim.target)
+    return await store.credentials(claim.workspace_id, provider)
 
 
 def _describe(result) -> str:

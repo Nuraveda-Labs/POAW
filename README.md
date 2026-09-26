@@ -13,10 +13,10 @@ log's root on a **public chain**. Anyone can check a receipt later — offline, 
 [![Node: AGPL v3](https://img.shields.io/badge/node-AGPL_v3-blue.svg)](node/LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Built with FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
-[![CI](https://img.shields.io/github/actions/workflow/status/Nuraveda-Labs/POAW/ci.yml?branch=main&label=CI)](https://github.com/Nuraveda-Labs/POAW/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/Nuraveda-Labs/qed-proof-core/ci.yml?branch=main&label=CI)](https://github.com/Nuraveda-Labs/qed-proof-core/actions)
 [![Discord](https://img.shields.io/badge/Discord-community%20%26%20support-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/9yhJs3EdCx)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Stars](https://img.shields.io/github/stars/Nuraveda-Labs/POAW?style=social)](https://github.com/Nuraveda-Labs/POAW/stargazers)
+[![Stars](https://img.shields.io/github/stars/Nuraveda-Labs/qed-proof-core?style=social)](https://github.com/Nuraveda-Labs/qed-proof-core/stargazers)
 
 **[Hosted](https://qedproof.site)** · **[Discord](https://discord.gg/9yhJs3EdCx)** · **[Spec](spec/SPEC.md)** · **[How it works](#how-it-works)** · **[Quickstart](#quickstart-self-host)** · **[Verifiers](#what-it-can-check-today)** · **[Check a receipt](#check-a-receipt-yourself)** · **[Contributing](CONTRIBUTING.md)**
 
@@ -118,7 +118,7 @@ see [CONTRIBUTING.md](CONTRIBUTING.md).
 **With Docker** (PostgreSQL + the node, on `127.0.0.1:8080`):
 
 ```bash
-git clone https://github.com/Nuraveda-Labs/POAW.git && cd POAW
+git clone https://github.com/Nuraveda-Labs/qed-proof-core.git && cd qed-proof-core
 docker compose up -d
 docker compose exec node poaw-node create-workspace --name "My team"   # prints an API key ONCE
 ```

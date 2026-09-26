@@ -134,6 +134,39 @@ class Store:
                where c.id = $1::uuid and c.workspace_id = $2::uuid""", claim_id, workspace_id)
         return dict(r) if r else None
 
+    async def list_claims(self, workspace_id: str, *, limit: int, before: tuple[datetime, str] | None = None,
+                          agent_id: str | None = None, action: str | None = None, verdict: str | None = None,
+                          state: str | None = None) -> list[dict[str, Any]]:
+        """Newest-first (created_at desc, id desc), for GET /v1/claims. Each row carries the same columns as
+        `claim_status` (SPEC parity) plus `created_at`/`claim_id` for the caller to build a keyset cursor from the
+        last row. `limit` should be requested as (page size + 1) so the caller can tell whether more pages exist."""
+        conds = ["c.workspace_id = $1::uuid"]
+        args: list[Any] = [workspace_id]
+        if before is not None:
+            args.append(before[0])
+            args.append(before[1])
+            conds.append(f"(c.created_at, c.id) < (${len(args) - 1}::timestamptz, ${len(args)}::uuid)")
+        if agent_id is not None:
+            args.append(agent_id)
+            conds.append(f"a.external_ref = ${len(args)}")
+        if action is not None:
+            args.append(action)
+            conds.append(f"c.action = ${len(args)}")
+        if verdict is not None:
+            args.append(verdict)
+            conds.append(f"r.verdict = ${len(args)}")
+        if state is not None:
+            args.append(state)
+            conds.append(f"c.state = ${len(args)}")
+        args.append(limit)
+        rows = await self.pool.fetch(
+            f"""select c.id::text as claim_id, c.state, c.attempts, r.id as receipt_id, r.verdict, c.created_at
+                from qed.claims c join qed.agents a on a.id = c.agent_id left join qed.receipts r on r.claim_id = c.id
+                where {' and '.join(conds)}
+                order by c.created_at desc, c.id desc
+                limit ${len(args)}""", *args)
+        return [dict(r) for r in rows]
+
     async def receipt_with_proof(self, receipt_id: str, log_id: str) -> dict | None:
         r = await self.pool.fetchrow("select body, signature, leaf_index from qed.receipts where id = $1", receipt_id)
         if not r:

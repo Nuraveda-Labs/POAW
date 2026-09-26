@@ -18,6 +18,15 @@ class Credentials(Protocol):
 
     def token(self) -> str | None: ...
 
+    # Optional: `account_id() -> str | None`, the destination account the claim must belong to (e.g. the X user ID a
+    # handle resolves to, or the Slack team ID). Read it with `account_id(creds)`, which treats a missing method as None.
+
+
+def account_id(creds) -> str | None:
+    """The credentials' bound destination account, or None when there are no credentials or no binding."""
+    fn = getattr(creds, "account_id", None)
+    return fn() if callable(fn) else None
+
 
 class Params(BaseModel):
     """Base for a verifier's params model. Unknown keys are rejected, because params are copied into public receipts (SECURITY F3)."""
@@ -47,5 +56,5 @@ def register(spec: VerifierSpec) -> VerifierSpec:
 
 
 def load_builtin() -> dict[str, VerifierSpec]:
-    from . import github, http  # noqa: F401  (registration side effect)
+    from . import github, http, slack, x  # noqa: F401  (registration side effect)
     return REGISTRY

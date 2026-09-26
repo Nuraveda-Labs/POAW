@@ -61,6 +61,7 @@ create table qed.claims (
   unique (workspace_id, client_claim_id)
 );
 create index claims_due on qed.claims (next_attempt_at) where state = 'queued';
+create index claims_list on qed.claims (workspace_id, created_at desc, id desc);
 
 -- Append-only Merkle log (SPEC §8). leaf_index is gapless: assigned under an advisory lock.
 create table qed.log_leaves (

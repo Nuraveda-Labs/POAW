@@ -259,6 +259,8 @@ Each verifier publishes a profile (a document plus a JSON Schema) defining:
 A profile is identified by `id` + `version`. Any change to (1)–(4) is a new version. A receipt is always
 judged by the version recorded in it.
 
+The profiles for the reference verifiers are published in [`profiles/`](profiles/), one document per action.
+
 ## 10. Checking a receipt (summary for implementers)
 
 1. Parse. Reject an unknown major `spec_version`.

@@ -20,7 +20,14 @@ class Signer(Protocol):
 
 
 class ConnectionStore(Protocol):
-    async def credentials(self, workspace_id: str, provider: str): ...  # object with .token(), or None
+    async def credentials(self, workspace_id: str, provider: str, target: str | None = None):
+        """An object with `.token()` (and optionally `.account_id()`), or None when there's no access.
+
+        `target` is the claim's target (e.g. `@handle` or `slack://T…/C…`), so a store holding several accounts per
+        provider can pick the right one. Stores that hold one credential per provider can ignore it. A store written
+        before `target` existed (two arguments only) still works: the node only passes it when the store accepts it.
+        """
+        ...
 
 
 class AlertSink(Protocol):
@@ -50,11 +57,15 @@ class _Token:
     def token(self) -> str | None:
         return self._v
 
+    def account_id(self) -> str | None:
+        return None
+
 
 class EnvConnections:
-    """Reference ConnectionStore: `POAW_<PROVIDER>_TOKEN` env vars, the same for every workspace."""
+    """Reference ConnectionStore: `POAW_<PROVIDER>_TOKEN` env vars, the same for every workspace. Ignores `target`.
+    With no account binding, verifiers that need one (`x.post.publish`) give `unverifiable/no_connection`."""
 
-    async def credentials(self, workspace_id: str, provider: str):
+    async def credentials(self, workspace_id: str, provider: str, target: str | None = None):
         v = os.environ.get(f"POAW_{provider.upper()}_TOKEN")
         return _Token(v) if v else None
 

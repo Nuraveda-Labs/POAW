@@ -1,9 +1,12 @@
 """HTTP surface (ARCHITECTURE §3). The app is built from a Node, so deployments inject their own seams."""
 from __future__ import annotations
 
+import base64
+import binascii
+from datetime import datetime
 from typing import Awaitable, Callable
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 
 from pydantic import ValidationError
 
@@ -14,7 +17,26 @@ from .service import Node
 
 CLAIMS_PER_MIN_PER_KEY = 60
 READS_PER_MIN_PER_IP = 120
+LIST_CLAIMS_DEFAULT_LIMIT = 50
+LIST_CLAIMS_MAX_LIMIT = 200
 MAX_BODY_BYTES = 64 * 1024
+
+
+def _encode_cursor(created_at: datetime, claim_id: str) -> str:
+    raw = f"{created_at.isoformat()}|{claim_id}".encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> tuple[datetime, str]:
+    try:
+        padded = cursor + "=" * (-len(cursor) % 4)
+        raw = base64.urlsafe_b64decode(padded.encode()).decode()
+        ts_str, sep, claim_id = raw.partition("|")
+        if not sep or not claim_id:
+            raise ValueError("malformed cursor")
+        return datetime.fromisoformat(ts_str), claim_id
+    except (ValueError, binascii.Error, UnicodeDecodeError):
+        raise HTTPException(status_code=400, detail="invalid cursor") from None
 
 SECURITY_HEADERS = {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
@@ -120,6 +142,24 @@ def create_app(get_node: Callable[[], Awaitable[Node]], *, log_id: str, tick_ena
         status = await n.store.claim_status(ws, claim.id)
         return {"claim_id": claim.id, "created": created, **(status or {}), "receipt_id": receipt_id or (status or {}).get("receipt_id")}
 
+    @app.get("/v1/claims")
+    async def list_claims(limit: int = Query(LIST_CLAIMS_DEFAULT_LIMIT, ge=1, le=LIST_CLAIMS_MAX_LIMIT),
+                          cursor: str | None = None, agent_id: str | None = None, action: str | None = None,
+                          verdict: str | None = None, state: str | None = None, ws: str = Depends(workspace),
+                          n: Node = Depends(node)) -> dict:
+        # Newest first, keyset-paginated on (created_at desc, id desc). `limit` items are returned; one extra row is
+        # fetched to tell whether a next page exists, so `next_cursor` is only set when it does (SPEC parity: each
+        # item is the exact dict shape claim_status returns).
+        before = _decode_cursor(cursor) if cursor else None
+        rows = await n.store.list_claims(ws, limit=limit + 1, before=before, agent_id=agent_id, action=action,
+                                         verdict=verdict, state=state)
+        more = len(rows) > limit
+        rows = rows[:limit]
+        claims = [{"claim_id": r["claim_id"], "state": r["state"], "attempts": r["attempts"],
+                   "receipt_id": r["receipt_id"], "verdict": r["verdict"]} for r in rows]
+        next_cursor = _encode_cursor(rows[-1]["created_at"], rows[-1]["claim_id"]) if more and rows else None
+        return {"claims": claims, "next_cursor": next_cursor}
+
     @app.get("/v1/claims/{claim_id}")
     async def claim_status(claim_id: str, ws: str = Depends(workspace), n: Node = Depends(node)) -> dict:
         s = await n.store.claim_status(ws, claim_id)
@@ -129,8 +169,17 @@ def create_app(get_node: Callable[[], Awaitable[Node]], *, log_id: str, tick_ena
 
     @app.get("/v1/receipts/{receipt_id}")
     async def receipt(receipt_id: str, request: Request, n: Node = Depends(node)) -> dict:
-        # Receipts are designed to be shared and checked by anyone, so reading one needs no key (SPEC §1).
-        if not await n.store.rate_take(f"ip:{client_ip(request)}", per_minute=READS_PER_MIN_PER_IP):
+        # Receipts are designed to be shared and checked by anyone, so reading one needs no key (SPEC §1) — an
+        # Authorization header is never required. But when one IS presented and resolves to a real workspace, the
+        # read is rate-limited per KEY instead of per IP (many agents sharing an egress IP shouldn't share a budget).
+        # An invalid/unknown key falls back to the IP bucket rather than failing the read. Deliberately a SEPARATE
+        # bucket namespace (truncated hash) from the `key:<full hash>` bucket `workspace()` uses for writes, since
+        # the two buckets carry different per-minute rates and rate_take's refill math assumes one rate per bucket.
+        bucket = f"ip:{client_ip(request)}"
+        scheme, _, key = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() == "bearer" and key and await n.store.workspace_for_key(key):
+            bucket = f"key:{key_hash(key)[:16]}"
+        if not await n.store.rate_take(bucket, per_minute=READS_PER_MIN_PER_IP):
             raise limited()
         r = await n.store.receipt_with_proof(receipt_id, log_id)
         if not r:
