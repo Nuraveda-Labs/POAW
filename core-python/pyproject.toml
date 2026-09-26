@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Proof of Agent Work receipt primitives: RFC 8785 JCS, Ed25519 receipt signatures, RFC 6962 Merkle proofs."
 requires-python = ">=3.11"
 license = "Apache-2.0"
+authors = [{ name = "Nuraveda Lab" }]
 dependencies = ["cryptography>=43", "rfc8785==0.1.4"]
 
 [build-system]

@@ -198,6 +198,8 @@ docker-compose.yml   PostgreSQL + the node
 
 ## License
 
+Copyright © 2026 **Nuraveda Lab**. See [`NOTICE`](NOTICE).
+
 - `spec/`, `core-python/`: **Apache-2.0** ([`LICENSE-APACHE`](LICENSE-APACHE)). Embed them anywhere.
 - `node/`: **AGPL-3.0-only** ([`node/LICENSE`](node/LICENSE)). Run it freely; a modified, hosted version must share its
   changes.
@@ -205,7 +207,8 @@ docker-compose.yml   PostgreSQL + the node
 ## Contributing
 
 Bug reports, verifiers and spec feedback are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md): commits need a DCO
-sign-off, and spec changes need a conformance vector.
+sign-off, contributions are made under the [CLA](CLA.md), and spec changes need a conformance vector. Everyone taking
+part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Security
 

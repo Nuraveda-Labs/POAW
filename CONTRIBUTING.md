@@ -13,8 +13,9 @@ release commit rather than as your original commit. Your authorship is kept in t
 Every commit must carry a `Signed-off-by:` line (`git commit -s`), certifying the
 [Developer Certificate of Origin](https://developercertificate.org/).
 
-A contributor licence agreement will also be required before the first outside contribution is merged. Its text will
-be published in this file first.
+Contributions are also made under the [Contributor License Agreement](CLA.md) with Nuraveda Lab, the copyright holder:
+you keep your copyright, and Nuraveda Lab may distribute your contribution under the Project's licences or others.
+Tick the box in the pull request template to agree.
 
 ## What makes a good change
 

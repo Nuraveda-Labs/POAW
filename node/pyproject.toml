@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Proof of Agent Work reference node: claims API, verifier runner, receipts, Merkle log."
 requires-python = ">=3.11"
 license = "AGPL-3.0-only"
+authors = [{ name = "Nuraveda Lab" }]
 dependencies = [
   "poaw-core",
   "fastapi>=0.115,<1",
