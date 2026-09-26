@@ -1,0 +1,27 @@
+# Self-host a poaw node:  docker compose up -d   then   docker compose exec node poaw-node create-workspace --name "My team"
+# Change POSTGRES_PASSWORD before running this anywhere but your own machine. Keys live in the `keys` volume: back it up.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: poaw
+      POSTGRES_PASSWORD: change-me
+      POSTGRES_DB: poaw
+    volumes: [db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poaw -d poaw"]
+      interval: 2s
+      retries: 30
+  node:
+    build: { context: ., dockerfile: node/Dockerfile }
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      POAW_DATABASE_URL: postgresql://poaw:change-me@db:5432/poaw
+      POAW_ISSUER_NAME: ${POAW_ISSUER_NAME:-poaw-node}
+      POAW_GITHUB_TOKEN: ${POAW_GITHUB_TOKEN:-}
+      POAW_ANCHOR_CHAIN: ${POAW_ANCHOR_CHAIN:-}
+    volumes: [keys:/keys]
+    ports: ["127.0.0.1:8080:8080"]
+volumes:
+  db: {}
+  keys: {}

@@ -32,3 +32,24 @@ jobs:
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tgz" | sha256sum -c -
           tar -xzf gitleaks.tgz gitleaks
           ./gitleaks detect --no-banner --redact
+
+  selfhost:
+    # `docker compose up` must give a node that turns a real claim into a receipt the reference checker accepts.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Boot the stack
+        run: |
+          docker compose up -d --build
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8080/healthz && break; sleep 2; done
+          curl -sf http://127.0.0.1:8080/healthz
+      - name: A workspace, a claim, a receipt that verifies
+        run: |
+          KEY=$(docker compose exec -T node poaw-node create-workspace --name ci | grep -o 'poaw_sk_[A-Za-z0-9_-]*')
+          python3 node/smoke.py http://127.0.0.1:8080 "$KEY"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color | tail -100
+

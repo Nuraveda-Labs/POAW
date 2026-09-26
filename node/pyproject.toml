@@ -10,10 +10,15 @@ dependencies = [
   "asyncpg>=0.30",
   "httpx>=0.27",
   "pydantic>=2.8",
+  "uvicorn>=0.30",
 ]
 
+[project.scripts]
+poaw-node = "poaw_node.cli:main"
+
 [project.optional-dependencies]
-test = ["pytest>=8", "pytest-asyncio>=0.24", "hypothesis>=6.100", "respx>=0.21", "jsonschema>=4.23"]
+anchor = ["rlp>=4", "eth-abi>=5", "eth-keys>=0.5", "eth-hash[pycryptodome]>=0.7", "cryptography>=43"]
+test = ["pytest>=8", "pytest-asyncio>=0.24", "hypothesis>=6.100", "respx>=0.21", "jsonschema>=4.23", "poaw-node[anchor]"]
 
 [tool.uv.sources]
 poaw-core = { path = "../core-python", editable = true }
