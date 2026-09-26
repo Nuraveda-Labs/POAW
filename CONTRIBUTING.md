@@ -2,6 +2,8 @@
 
 Thank you for helping. A few things are different from most repositories.
 
+Questions before you start? Ask on [Discord](https://discord.gg/Dv5fd7CkEE) (#contributing, or #support for help).
+
 ## This repository is published from upstream
 
 Releases here are snapshot commits exported from the maintainers' working repository. Pull requests are welcome;
