@@ -1,0 +1,48 @@
+{
+  "body": {
+    "agent": {
+      "id": "agent-example-1"
+    },
+    "claim": {
+      "action": "x.post.publish",
+      "claim_digest": "qLwhCYSHob4ckVwce2rXbT-74W2YxX4h15FFnfopW9o",
+      "claimed_at": "2026-09-25T14:01:58.000Z",
+      "client_claim_id": "example-002",
+      "params": {
+        "content_fingerprint": "sha256:mCD3PGf4XHNVT3RK9jliyzc1rHqUHql9fa8M66HA7MY"
+      },
+      "target": "x.com/example"
+    },
+    "issued_at": "2026-09-25T14:02:12.000Z",
+    "issuer": {
+      "key_id": "ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+      "name": "example-issuer"
+    },
+    "observation": {
+      "attempts": 1,
+      "deadline_at": "2026-09-25T14:17:58.000Z",
+      "facts": {
+        "content_fingerprint": "sha256:mCD3PGf4XHNVT3RK9jliyzc1rHqUHql9fa8M66HA7MY",
+        "found": true,
+        "post_id": "1840200000000000001"
+      },
+      "observed_at": "2026-09-25T14:02:11.000Z",
+      "verifier": {
+        "id": "x.post.publish",
+        "version": "1"
+      }
+    },
+    "receipt_id": "rcpt_01J8Z6Q4W3EXAMPLE000002",
+    "spec_version": "poaw/0.1",
+    "trust_level": 1,
+    "verdict": {
+      "reason_code": "observed_after_tolerance",
+      "value": "late"
+    }
+  },
+  "signature": {
+    "alg": "Ed25519",
+    "key_id": "ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+    "value": "dR2DEDzo2DiWUyDDEMaPLdZKkvuSFV1CkGAGgDzMEEvwktwd6zYjterH0Ov8cHrWZp9cnwz9J2j5wDlEEOsdAg"
+  }
+}

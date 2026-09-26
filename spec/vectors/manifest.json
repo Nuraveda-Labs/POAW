@@ -1,0 +1,386 @@
+{
+  "keyset": "keys.json",
+  "spec_version": "poaw/0.1",
+  "vectors": [
+    {
+      "description": "Signed L1 receipt, verified.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "001-valid-verified.json"
+    },
+    {
+      "description": "Outcome present but after tolerance.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "late"
+      },
+      "file": "002-valid-late.json"
+    },
+    {
+      "description": "Post exists with a different fingerprint.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "mismatch"
+      },
+      "file": "003-valid-mismatch.json"
+    },
+    {
+      "description": "Destination read, outcome absent by deadline.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "failed"
+      },
+      "file": "004-valid-failed.json"
+    },
+    {
+      "description": "Destination rate-limited until deadline.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "unverifiable"
+      },
+      "file": "005-valid-unverifiable.json"
+    },
+    {
+      "description": "Key B, issued before its revocation: still valid.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "006-valid-key-b-before-revocation.json"
+    },
+    {
+      "description": "Verdict changed from failed to verified after signing.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": false,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "007-tampered-verdict.json"
+    },
+    {
+      "description": "Body names key A but was signed with key B.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": false,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "008-wrong-key.json"
+    },
+    {
+      "description": "key_id not present in the issuer's key set.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": false,
+          "schema": true,
+          "signature": false,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "009-unknown-key.json"
+    },
+    {
+      "description": "Key B, issued after its revocation.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": false,
+          "schema": true,
+          "signature": false,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "010-revoked-key.json"
+    },
+    {
+      "description": "claim_digest does not match the claim.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": false,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "011-bad-claim-digest.json"
+    },
+    {
+      "description": "unverifiable MUST carry a reason_code (schema).",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": false,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "012-unverifiable-without-reason.json"
+    },
+    {
+      "description": "trust_level 3 requires attestation + code_hash (schema).",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": false,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "013-level3-without-attestation.json"
+    },
+    {
+      "description": "Floating-point numbers are not allowed (\u00a73).",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": false,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "014-float-in-body.json"
+    },
+    {
+      "description": "Unknown major spec_version must be rejected.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": false,
+          "signature": true,
+          "spec_version": false
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "015-unsupported-major-version.json"
+    },
+    {
+      "description": "Valid inclusion proof, leaf 0 of 7. Claims L2 but has no anchor: achieved level 1.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": true,
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "016-inclusion-first-leaf.json"
+    },
+    {
+      "description": "Valid inclusion proof, leaf 6 of 7 (unbalanced edge).",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": true,
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "017-inclusion-last-leaf.json"
+    },
+    {
+      "description": "Valid inclusion proof, leaf 3 of 7.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": true,
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "018-inclusion-middle-leaf.json"
+    },
+    {
+      "description": "Altered audit path.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": false,
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "019-bad-inclusion-path.json"
+    },
+    {
+      "description": "Correct path, wrong index.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": false,
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "020-wrong-leaf-index.json"
+    }
+  ]
+}

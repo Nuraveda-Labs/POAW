@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:poaw:schema:0.1:receipt",
+  "title": "PoAW receipt (poaw/0.1)",
+  "description": "Structural schema for a Proof of Agent Work receipt. Signature, inclusion and anchor checks are defined in SPEC.md and are not expressible in JSON Schema.",
+  "type": "object",
+  "required": ["body", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "body": { "$ref": "#/$defs/body" },
+    "signature": { "$ref": "#/$defs/signature" },
+    "proof": { "$ref": "#/$defs/proof" }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$"
+    },
+    "b64url": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+    "keyId": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9_-]{43}$" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[A-Za-z0-9_-]{43}$" },
+    "action": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+){2}$" },
+    "verdictValue": { "enum": ["verified", "late", "mismatch", "failed", "unverifiable"] },
+    "reasonCode": {
+      "enum": [
+        "not_found", "content_mismatch", "target_mismatch", "observed_after_tolerance",
+        "no_connection", "permission_denied", "rate_limited", "destination_unavailable",
+        "unsupported_action", "claim_ambiguous", "verifier_error"
+      ]
+    },
+    "body": {
+      "type": "object",
+      "required": ["spec_version", "receipt_id", "issued_at", "issuer", "agent", "claim", "observation", "verdict", "trust_level"],
+      "properties": {
+        "spec_version": { "const": "poaw/0.1" },
+        "receipt_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "issued_at": { "$ref": "#/$defs/timestamp" },
+        "issuer": {
+          "type": "object",
+          "required": ["key_id"],
+          "properties": {
+            "key_id": { "$ref": "#/$defs/keyId" },
+            "name": { "type": "string", "maxLength": 128 }
+          }
+        },
+        "agent": {
+          "type": "object",
+          "required": ["id"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "erc8004": {
+              "type": "object",
+              "required": ["chain", "registry", "agent_id"],
+              "properties": {
+                "chain": { "type": "string", "pattern": "^[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$" },
+                "registry": { "type": "string" },
+                "agent_id": { "type": "string" }
+              }
+            }
+          }
+        },
+        "operator": { "type": "string", "maxLength": 256 },
+        "claim": {
+          "type": "object",
+          "required": ["action", "target", "params", "claimed_at", "claim_digest"],
+          "properties": {
+            "action": { "$ref": "#/$defs/action" },
+            "target": { "type": "string", "minLength": 1, "maxLength": 512 },
+            "params": { "type": "object" },
+            "claimed_at": { "$ref": "#/$defs/timestamp" },
+            "client_claim_id": { "type": "string", "maxLength": 256 },
+            "claim_digest": { "$ref": "#/$defs/b64url" }
+          }
+        },
+        "observation": {
+          "type": "object",
+          "required": ["verifier", "observed_at", "deadline_at", "attempts", "facts"],
+          "properties": {
+            "verifier": {
+              "type": "object",
+              "required": ["id", "version"],
+              "properties": {
+                "id": { "$ref": "#/$defs/action" },
+                "version": { "type": "string", "pattern": "^\\d+$" },
+                "code_hash": { "$ref": "#/$defs/fingerprint" }
+              }
+            },
+            "observed_at": { "$ref": "#/$defs/timestamp" },
+            "deadline_at": { "$ref": "#/$defs/timestamp" },
+            "attempts": { "type": "integer", "minimum": 1 },
+            "facts": { "type": "object" }
+          }
+        },
+        "verdict": {
+          "type": "object",
+          "required": ["value"],
+          "properties": {
+            "value": { "$ref": "#/$defs/verdictValue" },
+            "reason_code": { "$ref": "#/$defs/reasonCode" }
+          },
+          "if": { "properties": { "value": { "const": "unverifiable" } } },
+          "then": { "required": ["value", "reason_code"] }
+        },
+        "trust_level": { "type": "integer", "minimum": 1, "maximum": 4 },
+        "attestation": {
+          "type": "object",
+          "required": ["type", "document"],
+          "properties": {
+            "type": { "type": "string" },
+            "document": { "$ref": "#/$defs/b64url" }
+          }
+        },
+        "supersedes": { "type": "string" }
+      },
+      "if": { "properties": { "trust_level": { "minimum": 3 } } },
+      "then": {
+        "required": ["attestation"],
+        "properties": {
+          "observation": { "properties": { "verifier": { "required": ["id", "version", "code_hash"] } } }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "required": ["alg", "key_id", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "alg": { "const": "Ed25519" },
+        "key_id": { "$ref": "#/$defs/keyId" },
+        "value": { "type": "string", "pattern": "^[A-Za-z0-9_-]{86}$" }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "required": ["log_id", "leaf_index", "tree_size", "root_hash", "inclusion"],
+      "properties": {
+        "log_id": { "$ref": "#/$defs/b64url" },
+        "leaf_index": { "type": "integer", "minimum": 0 },
+        "tree_size": { "type": "integer", "minimum": 1 },
+        "root_hash": { "$ref": "#/$defs/b64url" },
+        "inclusion": { "type": "array", "items": { "$ref": "#/$defs/b64url" } },
+        "anchor": {
+          "type": "object",
+          "required": ["chain", "scheme", "uid", "tx_hash", "tree_size"],
+          "properties": {
+            "chain": { "type": "string" },
+            "scheme": { "const": "eas" },
+            "uid": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+            "tx_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+            "tree_size": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    }
+  }
+}

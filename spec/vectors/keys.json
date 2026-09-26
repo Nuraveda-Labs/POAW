@@ -1,0 +1,16 @@
+{
+  "keys": [
+    {
+      "key_id": "ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+      "public_key": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "revoked_at": null,
+      "valid_from": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "key_id": "ed25519:OfcT0KZEJT8EUpQhufUbmwiXnQgpWVnE85kO5hf1E58",
+      "public_key": "PUAXw-hDiVqStwqnTRt-vJyYLM8uxJaMwM1V8Sr0Zgw",
+      "revoked_at": "2026-06-01T00:00:00.000Z",
+      "valid_from": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}
