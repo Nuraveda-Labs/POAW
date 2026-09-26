@@ -14,11 +14,11 @@ log's root on a **public chain**. Anyone can check a receipt later — offline, 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Built with FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 [![CI](https://img.shields.io/github/actions/workflow/status/Nuraveda-Labs/POAW/ci.yml?branch=main&label=CI)](https://github.com/Nuraveda-Labs/POAW/actions)
-[![Discord](https://img.shields.io/badge/Discord-community%20%26%20support-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/Dv5fd7CkEE)
+[![Discord](https://img.shields.io/badge/Discord-community%20%26%20support-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/9yhJs3EdCx)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Stars](https://img.shields.io/github/stars/Nuraveda-Labs/POAW?style=social)](https://github.com/Nuraveda-Labs/POAW/stargazers)
 
-**[Hosted](https://qedproof.site)** · **[Discord](https://discord.gg/Dv5fd7CkEE)** · **[Spec](spec/SPEC.md)** · **[How it works](#how-it-works)** · **[Quickstart](#quickstart-self-host)** · **[Verifiers](#what-it-can-check-today)** · **[Check a receipt](#check-a-receipt-yourself)** · **[Contributing](CONTRIBUTING.md)**
+**[Hosted](https://qedproof.site)** · **[Discord](https://discord.gg/9yhJs3EdCx)** · **[Spec](spec/SPEC.md)** · **[How it works](#how-it-works)** · **[Quickstart](#quickstart-self-host)** · **[Verifiers](#what-it-can-check-today)** · **[Check a receipt](#check-a-receipt-yourself)** · **[Contributing](CONTRIBUTING.md)**
 
 </div>
 
@@ -200,7 +200,7 @@ docker-compose.yml   PostgreSQL + the node
 
 ## Community and support
 
-**Support happens on Discord:** [discord.gg/Dv5fd7CkEE](https://discord.gg/Dv5fd7CkEE). Open a post in the **#support**
+**Support happens on Discord:** [discord.gg/9yhJs3EdCx](https://discord.gg/9yhJs3EdCx). Open a post in the **#support**
 forum (hosted or self-hosted, it's the same place), or join the conversation in #spec and #verifiers. Found a bug in the
 code? A GitHub issue is fine too. **Security problems never go on Discord:** use the private reporting below.
 

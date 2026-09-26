@@ -23,11 +23,27 @@ SECURITY_HEADERS = {
 }
 
 
+EDGE_IP_HEADER = "x-qed-viewer-ip"
+EDGE_SECRET_HEADER = "x-qed-edge"
+
+
 def client_ip(request: Request) -> str:
     """The caller's IP as AWS saw it. The Lambda Web Adapter forwards the Function URL request context in
     `x-amzn-request-context`, and `http.sourceIp` there is set by AWS. X-Forwarded-For is NOT trusted, because the caller
-    controls it and could rotate it to dodge the per-IP limit."""
+    controls it and could rotate it to dodge the per-IP limit.
+
+    Behind a CDN (e.g. CloudFront), `sourceIp` is the edge, not the caller. If `POAW_TRUSTED_EDGE_SECRET` is set, an
+    `x-qed-viewer-ip` header is trusted ONLY when the request also carries `x-qed-edge` equal to that secret (the edge adds
+    it; a direct caller can't know it), and the edge must overwrite any client-sent `x-qed-viewer-ip`."""
+    import hmac
     import json
+    import os
+    edge_secret = os.environ.get("POAW_TRUSTED_EDGE_SECRET", "")
+    if edge_secret:
+        presented = request.headers.get(EDGE_SECRET_HEADER, "")
+        viewer = request.headers.get(EDGE_IP_HEADER, "").strip()
+        if viewer and presented and hmac.compare_digest(presented.encode(), edge_secret.encode()):
+            return viewer[:64]
     ctx = request.headers.get("x-amzn-request-context")
     if ctx:
         try:

@@ -129,6 +129,26 @@ def test_client_ip_ignores_forwarded_for_and_uses_aws_context():
     assert client_ip(Request(spoof_only)) == "10.0.0.1"
 
 
+def _req(headers):
+    from starlette.requests import Request
+    ctx = (b"x-amzn-request-context", json.dumps({"http": {"sourceIp": "9.9.9.9"}}).encode())  # the edge, as AWS saw it
+    return Request({"type": "http", "headers": [ctx, *headers], "client": ("10.0.0.1", 1)})
+
+
+def test_client_ip_trusts_edge_header_only_with_the_edge_secret(monkeypatch):
+    monkeypatch.setenv("POAW_TRUSTED_EDGE_SECRET", "s3cret")
+    good = [(b"x-qed-edge", b"s3cret"), (b"x-qed-viewer-ip", b"203.0.113.7")]
+    assert client_ip(_req(good)) == "203.0.113.7"
+    # A direct caller who forges the viewer header without the secret (or with a wrong one) gets the AWS-seen IP.
+    assert client_ip(_req([(b"x-qed-viewer-ip", b"203.0.113.7")])) == "9.9.9.9"
+    assert client_ip(_req([(b"x-qed-edge", b"guess"), (b"x-qed-viewer-ip", b"203.0.113.7")])) == "9.9.9.9"
+
+
+def test_client_ip_ignores_edge_headers_when_no_secret_is_configured(monkeypatch):
+    monkeypatch.delenv("POAW_TRUSTED_EDGE_SECRET", raising=False)
+    assert client_ip(_req([(b"x-qed-edge", b""), (b"x-qed-viewer-ip", b"203.0.113.7")])) == "9.9.9.9"
+
+
 # -- F4: connect to the pinned, validated IP -------------------------------------------------------------------------
 @respx.mock
 async def test_http_verifier_connects_to_pinned_ip(monkeypatch):

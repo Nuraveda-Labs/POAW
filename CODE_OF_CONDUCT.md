@@ -61,7 +61,7 @@ representative at an online or offline event.
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement at
 help.nuraveda@gmail.com, or privately to a Moderator or a member of the QED Team on our
-[Discord](https://discord.gg/Dv5fd7CkEE) (send a direct message; don't report in a public channel).
+[Discord](https://discord.gg/9yhJs3EdCx) (send a direct message; don't report in a public channel).
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
