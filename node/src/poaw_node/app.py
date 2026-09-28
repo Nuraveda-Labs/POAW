@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from .models import ClaimIn
 from .store import key_hash
 from .service import Node
+from .verifiers import REGISTRY, load_builtin
 
 
 CLAIMS_PER_MIN_PER_KEY = 60
@@ -159,6 +160,24 @@ def create_app(get_node: Callable[[], Awaitable[Node]], *, log_id: str, tick_ena
                    "receipt_id": r["receipt_id"], "verdict": r["verdict"]} for r in rows]
         next_cursor = _encode_cursor(rows[-1]["created_at"], rows[-1]["claim_id"]) if more and rows else None
         return {"claims": claims, "next_cursor": next_cursor}
+
+    @app.get("/v1/connections")
+    async def list_connections(ws: str = Depends(workspace), n: Node = Depends(node)) -> dict:
+        # What this workspace can have verified: each active connection with the verifier actions its provider
+        # supports here, plus the actions that need no connection. Deliberately no account identifiers (the key holder
+        # is usually an agent; the console shows names to signed-in members). Lane connections-list-api.
+        load_builtin()
+        by_provider: dict[str, list[str]] = {}
+        public: list[str] = []
+        for action, spec in REGISTRY.items():
+            (by_provider.setdefault(spec.provider, []) if spec.provider else public).append(action)
+        rows = await n.store.list_connections(ws)
+        return {
+            "connections": [{"id": r["id"], "provider": r["provider"], "scopes": sorted(r["scopes"] or []),
+                             "connected_at": r["created_at"].isoformat().replace("+00:00", "Z"),
+                             "actions": sorted(by_provider.get(r["provider"], []))} for r in rows],
+            "public_actions": sorted(public),
+        }
 
     @app.get("/v1/claims/{claim_id}")
     async def claim_status(claim_id: str, ws: str = Depends(workspace), n: Node = Depends(node)) -> dict:

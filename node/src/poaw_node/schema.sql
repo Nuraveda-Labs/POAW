@@ -111,6 +111,7 @@ create trigger leaves_append_only    before update or delete on qed.log_leaves f
 create trigger roots_append_only     before update or delete on qed.log_roots  for each row execute function qed.forbid_mutation();
 create trigger receipts_no_truncate  before truncate on qed.receipts   for each statement execute function qed.forbid_mutation();
 create trigger leaves_no_truncate    before truncate on qed.log_leaves for each statement execute function qed.forbid_mutation();
+create trigger roots_no_truncate     before truncate on qed.log_roots  for each statement execute function qed.forbid_mutation();
 
 
 -- Rate limiting (token buckets), used by the claims API and receipt reads.

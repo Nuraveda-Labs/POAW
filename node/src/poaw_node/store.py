@@ -18,6 +18,12 @@ from .models import Claim, ClaimIn
 
 LOG_LOCK = 0x51ED_0001  # advisory lock key for log appends
 
+# GET /v1/connections. Only columns needed to route a claim: never an account name, login, team/user id or secret_ref
+# (lane connections-list-api, "data minimisation"). Active rows only, oldest first.
+LIST_CONNECTIONS_SQL = """select id::text as id, provider, scopes, created_at from qed.connections
+   where workspace_id = $1::uuid and status = 'active'
+   order by created_at, id"""
+
 
 def key_hash(api_key: str) -> str:
     return hashlib.sha256(api_key.encode()).hexdigest()
@@ -166,6 +172,10 @@ class Store:
                 order by c.created_at desc, c.id desc
                 limit ${len(args)}""", *args)
         return [dict(r) for r in rows]
+
+    async def list_connections(self, workspace_id: str) -> list[dict[str, Any]]:
+        """The workspace's active connections for GET /v1/connections (see LIST_CONNECTIONS_SQL)."""
+        return [dict(r) for r in await self.pool.fetch(LIST_CONNECTIONS_SQL, workspace_id)]
 
     async def receipt_with_proof(self, receipt_id: str, log_id: str) -> dict | None:
         r = await self.pool.fetchrow("select body, signature, leaf_index from qed.receipts where id = $1", receipt_id)
