@@ -18,6 +18,7 @@ class FakeConn:
         self.last = None if last_size is None else {"tree_size": last_size, "root_hash": last_root or p.mth(LEAVES[:last_size]),
                                                     "anchored_at": last_at}
         self.spent, self.failed_at, self.executed = spent, failed_at, []
+        self.claim_lost = False
 
     async def fetchrow(self, sql, *a):
         if "status = 'pending'" in sql:
@@ -27,6 +28,9 @@ class FakeConn:
         return self.head
 
     async def fetchval(self, sql, *a):
+        if "insert into qed.anchors" in sql:
+            self.executed.append(sql)
+            return None if self.claim_lost else a[0]
         return self.failed_at if "status = 'failed'" in sql else self.spent
 
     async def execute(self, sql, *a):
@@ -153,6 +157,19 @@ async def test_healthy_path_attests_the_head_over_the_last_anchor(honest_nodes):
     assert len(conn.executed) == 2  # the pending row, then its tx hash
 
 
+async def test_a_tick_that_loses_the_send_claim_sends_nothing(honest_nodes):
+    """#144/#147: an overlapping tick already holds the pending row, so this one must not send a second transaction."""
+    alerts, conn, rpc = [], FakeConn(12, 8, NOW - timedelta(hours=1)), SendRpc(balance=10**18)
+    conn.claim_lost = True
+    r = await anchorer(conn, alerts, rpc).run(NOW)
+    assert r["anchor"] == "busy" and not rpc.sent and not alerts
+
+
+def test_send_claim_never_resets_a_landed_or_pending_row():
+    assert "where qed.anchors.status not in ('landed', 'pending')" in A.CLAIM_ANCHOR_SQL
+    assert "returning tree_size" in A.CLAIM_ANCHOR_SQL
+
+
 async def test_receipt_before_block_is_visible_defers_quietly_and_lands_next_tick(honest_nodes):
     """Seen live on the first Sepolia anchor: the receipt was served but getBlockByNumber returned null."""
     rc = {"status": "0x1", "blockNumber": "0x10", "gasUsed": "0x5", "effectiveGasPrice": "0x2",
@@ -176,6 +193,6 @@ async def test_receipt_before_block_is_visible_defers_quietly_and_lands_next_tic
     alerts, conn, rpc = [], Conn(12, 8, NOW - timedelta(hours=1)), LaggyRpc(balance=10**18)
     a = anchorer(conn, alerts, rpc)
     assert (await a.run(NOW))["anchor"] == "pending" and not alerts
-    assert not any("landed" in sql for sql in conn.executed)
+    assert not any("set status = 'landed'" in sql for sql in conn.executed)
     r = await a._land(conn, {"tree_size": 12, "tx_hash": "0x" + "ab" * 32}, rc)
     assert r["anchor"] == "landed" and r["uid"] == "0x" + "cd" * 32 and not alerts

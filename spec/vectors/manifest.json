@@ -1,6 +1,6 @@
 {
   "keyset": "keys.json",
-  "spec_version": "poaw/0.1",
+  "spec_version": "poaw/0.2",
   "vectors": [
     {
       "description": "Signed L1 receipt, verified.",
@@ -381,6 +381,308 @@
         "verdict": null
       },
       "file": "020-wrong-leaf-index.json"
+    },
+    {
+      "description": "A poaw/0.2 receipt that uses nothing new is still a plain receipt.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "021-valid-0.2-without-policy.json"
+    },
+    {
+      "description": "Receipt with a policy, checked against the pipeline document: digest, id and version agree.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "022-valid-policy-checked.json",
+      "pipeline": "pipeline.example.json"
+    },
+    {
+      "description": "Same kind of receipt, but no pipeline document is available: policy is not_checked, and the receipt stays valid.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": "not_checked",
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": true,
+        "verdict": "verified"
+      },
+      "file": "023-valid-policy-not-checked.json"
+    },
+    {
+      "description": "The digest is not the digest of the pipeline document (a different document was substituted).",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": false,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "024-policy-bad-digest.json",
+      "pipeline": "pipeline.example.json"
+    },
+    {
+      "description": "The digest is right for the document, but the policy names a different version of it.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": false,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "025-policy-version-mismatch.json",
+      "pipeline": "pipeline.example.json"
+    },
+    {
+      "description": "A policy is a 0.2 member: a body that says poaw/0.1 may not carry one (schema).",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": "not_checked",
+          "schema": false,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "026-policy-on-0.1-body.json"
+    },
+    {
+      "description": "A change entry: an in-scope push nobody claimed. Same log, own signature domain, no verdict.",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "entry_kind": "change",
+        "valid": true,
+        "verdict": null
+      },
+      "file": "027-valid-change.json",
+      "pipeline": "pipeline.example.json"
+    },
+    {
+      "description": "The change's fingerprint was altered after signing.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": "not_checked",
+          "schema": true,
+          "signature": false,
+          "spec_version": true
+        },
+        "entry_kind": "change",
+        "valid": false,
+        "verdict": null
+      },
+      "file": "028-change-tampered.json"
+    },
+    {
+      "description": "A change body signed under the receipt domain: the signature must not verify.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": "not_checked",
+          "schema": true,
+          "signature": false,
+          "spec_version": true
+        },
+        "entry_kind": "change",
+        "valid": false,
+        "verdict": null
+      },
+      "file": "029-change-signed-as-receipt.json"
+    },
+    {
+      "description": "A receipt signed under the change domain: the signature must not verify.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": true,
+          "signature": false,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "030-receipt-signed-as-change.json"
+    },
+    {
+      "description": "A change entry MUST name the pipeline that was watching (schema).",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": false,
+          "signature": true,
+          "spec_version": true
+        },
+        "entry_kind": "change",
+        "valid": false,
+        "verdict": null
+      },
+      "file": "031-change-without-policy.json"
+    },
+    {
+      "description": "A change entry MUST NOT carry a claim (schema): there was none.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "policy": "not_checked",
+          "schema": false,
+          "signature": true,
+          "spec_version": true
+        },
+        "entry_kind": "change",
+        "valid": false,
+        "verdict": null
+      },
+      "file": "032-change-with-claim.json"
+    },
+    {
+      "description": "An entry_kind this spec does not define is not an entry (schema).",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "claim_digest": true,
+          "inclusion": "absent",
+          "integers_only": true,
+          "key": true,
+          "schema": false,
+          "signature": true,
+          "spec_version": true
+        },
+        "valid": false,
+        "verdict": null
+      },
+      "file": "033-unknown-entry-kind.json"
+    },
+    {
+      "description": "A change entry proven included in a log that also holds receipts (leaf 1 of 5).",
+      "expected": {
+        "achieved_trust_level": 1,
+        "checks": {
+          "anchor": "absent",
+          "inclusion": true,
+          "integers_only": true,
+          "key": true,
+          "policy": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "entry_kind": "change",
+        "valid": true,
+        "verdict": null
+      },
+      "file": "034-change-inclusion.json",
+      "pipeline": "pipeline.example.json"
+    },
+    {
+      "description": "A change entry with an altered audit path.",
+      "expected": {
+        "achieved_trust_level": 0,
+        "checks": {
+          "anchor": "absent",
+          "inclusion": false,
+          "integers_only": true,
+          "key": true,
+          "policy": true,
+          "schema": true,
+          "signature": true,
+          "spec_version": true
+        },
+        "entry_kind": "change",
+        "valid": false,
+        "verdict": null
+      },
+      "file": "035-change-bad-inclusion-path.json",
+      "pipeline": "pipeline.example.json"
     }
   ]
 }

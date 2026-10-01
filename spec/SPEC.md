@@ -1,6 +1,6 @@
 # Proof of Agent Work (PoAW) — Receipt Specification
 
-**Version:** `poaw/0.1` (draft) · **Status:** Draft. Breaking changes are expected before 1.0. · **License:** Apache-2.0
+**Version:** `poaw/0.2` (draft; `poaw/0.1` receipts stay valid, see §16) · **Status:** Draft. Breaking changes are expected before 1.0. · **License:** Apache-2.0
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be read as in RFC 2119.
 
@@ -31,6 +31,9 @@ particular destination. Each verifier publishes its own profile (§9).
 | **Issuer** | The party that ran the verifier and signed the receipt. It is identified by a public key. |
 | **Log** | An append-only Merkle tree of receipts, operated by the issuer (§8). |
 | **Anchor** | A public, timestamped commitment to a log root, e.g. an attestation on a blockchain (§8.4). |
+| **Pipeline** | A declarative, versioned document that says what to prove, where, and what to do about the outcome (§15). |
+| **Policy** | The identity of the pipeline version a receipt or change entry was produced under: `{pipeline_id, pipeline_version, digest}` (§15.2). |
+| **Change entry** | A signed log entry recording an in-scope change at a destination that no claim explained (§14). |
 
 ## 3. Encoding
 
@@ -64,7 +67,7 @@ doesn't need to be signed.
 
 | Field | Type | Req. | Meaning |
 |---|---|---|---|
-| `spec_version` | string | MUST | `"poaw/0.1"` |
+| `spec_version` | string | MUST | `"poaw/0.1"` or `"poaw/0.2"`. A body that uses a member introduced in 0.2 (`policy`) MUST say `"poaw/0.2"`. An issuer that uses none MAY keep saying `"poaw/0.1"`. |
 | `receipt_id` | string | MUST | Issuer-unique ID. RECOMMENDED form: `rcpt_` followed by a ULID. |
 | `issued_at` | timestamp | MUST | When the issuer signed. |
 | `issuer` | object | MUST | `{ "key_id": string, "name"?: string }`. `key_id` per §5.2. |
@@ -76,9 +79,10 @@ doesn't need to be signed.
 | `trust_level` | integer | MUST | 1–4 (§7) |
 | `attestation` | object | MAY | Required when `trust_level` ≥ 3. `{ "type": string, "document": string }`, e.g. `type: "aws-nitro-enclave"`. |
 | `supersedes` | string | MAY | The `receipt_id` this receipt corrects. The old receipt remains valid as a record. Consumers SHOULD prefer the newest in a chain. |
+| `policy` | object | MAY | `poaw/0.2`. The pipeline version that asked for this receipt: `{ "pipeline_id": string, "pipeline_version": integer, "digest": string }` (§15.2). |
 
 Unknown members in `body` MUST be preserved (they are covered by the signature). Consumers
-MUST reject a body whose `spec_version` major version they don't support.
+MUST reject a body whose `spec_version` major version they don't support. Checkers MUST accept `poaw/0.1` and `poaw/0.2`.
 
 ### 4.2 `claim`
 
@@ -121,6 +125,9 @@ MUST reject a body whose `spec_version` major version they don't support.
 message   = "POAW-RECEIPT-V0" || 0x0A || JCS(body)      // domain-separated
 signature = Ed25519-Sign(issuer_private_key, message)    // RFC 8032, pure Ed25519
 ```
+
+A change entry (§14) is signed the same way under its own domain, `"POAW-CHANGE-V0" || 0x0A || JCS(body)`, so a signature
+over one kind of entry can never verify as the other.
 
 ```json
 "signature": { "alg": "Ed25519", "key_id": "<§5.2>", "value": "<base64url 64-byte signature>" }
@@ -203,6 +210,8 @@ from being valid as a signature over any other protocol's message.
 
 `leaf_hash = SHA-256( 0x00 || JCS({ "body": body, "signature": signature }) )`
 
+This holds for every kind of entry in the log: receipts and change entries (§14) are leaves of the same tree.
+
 The log is an RFC 6962-style Merkle tree. Interior nodes are `SHA-256( 0x01 || left || right )`.
 
 ### 8.2 `proof`
@@ -271,6 +280,8 @@ The profiles for the reference verifiers are published in [`profiles/`](profiles
    matches a published verifier build.
 6. Report: signature ✓/✗, inclusion ✓/✗/absent, anchor ✓/✗/absent (with proven-by time), **achieved** trust
    level, and the verdict. A checker MUST NOT present a receipt as valid if step 2 fails.
+7. If `body.policy` is present, report `policy`: `not_checked` without the pipeline document, otherwise ✓/✗ per §15.2.
+   A failed policy check makes the receipt invalid. An entry with `body.entry_kind` = `"change"` is checked per §14.3.
 
 ## 11. ERC-8004 mapping (informative)
 
@@ -290,6 +301,99 @@ the ERC-8004 draft stabilises.
 
 ## 13. Test vectors
 
-`vectors/` holds receipts with expected checker outcomes: valid at each trust level, tampered body,
-wrong key, revoked key, bad inclusion path, anchor/root mismatch, every verdict value and every reason code.
+`vectors/` holds receipts and change entries with expected checker outcomes: valid at each trust level, tampered body,
+wrong key, revoked key, bad inclusion path, anchor/root mismatch, every verdict value and every reason code, and (from
+`poaw/0.2`) policy digests, change entries, and a signature moved across domains.
 Every conforming implementation MUST produce the expected outcome for every vector.
+
+## 14. Change entries (`poaw/0.2`)
+
+A **change entry** records a change at a destination that fell inside a pipeline's scope (§15) and that **no claim
+explained**. It answers "what did the agent do that it never reported?". It is not a verdict on a claim, so it is not a
+receipt. It lives in the same log, under the same keys, with the same inclusion proof and anchoring (§8).
+
+### 14.1 `body`
+
+A change entry has the same three top-level members as a receipt (`body`, `signature`, `proof`). Its `body` is:
+
+| Field | Type | Req. | Meaning |
+|---|---|---|---|
+| `spec_version` | string | MUST | `"poaw/0.2"` |
+| `entry_kind` | string | MUST | `"change"`. A body without `entry_kind` is a receipt. |
+| `change_id` | string | MUST | Issuer-unique ID. RECOMMENDED form: `chg_` followed by a ULID. |
+| `issued_at` | timestamp | MUST | When the issuer signed. |
+| `issuer` | object | MUST | As in §4.1. |
+| `connector` | string | MUST | The destination system, lowercase, e.g. `"github"`. |
+| `event` | string | MUST | The kind of destination event, in the form of an action name (§9.1), e.g. `"github.commit.push"`. |
+| `target` | string | MUST | Where the change happened, in the form `event`'s profile defines (a repo slug, an account ID). |
+| `fingerprint` | string | MUST | The destination's own identifier for the change (a commit SHA, a change-log entry ID), or a §4.4 fingerprint. |
+| `seen_at` | timestamp | MUST | When the watcher read the change from the destination. |
+| `occurred_at` | timestamp | MAY | When the destination says the change happened. |
+| `facts` | object | MUST | Verifier-defined, following §4.4. |
+| `watcher` | object | MUST | `{ "id": string, "version": string, "code_hash"?: string }`. The profile (§9) that read the change. `code_hash` is REQUIRED at trust level ≥ 3. |
+| `policy` | object | MUST | The pipeline version that was watching (§15.2). |
+| `trust_level` | integer | MUST | 1–4 (§7), with the same meaning as for receipts. |
+| `attestation` | object | MAY | Required when `trust_level` ≥ 3, as in §4.1. |
+
+A change entry MUST NOT carry `claim`, `observation` or `verdict`. There was no claim, and the entry makes no judgement about
+the agent: it states that a change happened and was not reported within the pipeline's grace period.
+
+### 14.2 Rules
+
+1. **Evidence comes from the destination.** `fingerprint`, `occurred_at` and `facts` are what the watcher read, never
+   anything an agent supplied.
+2. **Append-only.** A change entry is never edited or removed. If a claim later covers the same change, that claim's receipt
+   is a separate entry. Consumers MAY link the two by `target` and `fingerprint`.
+3. **No blame without a read.** A watcher that could not read the destination records nothing. It does not guess that a
+   change happened (compare §6.2 rule 2).
+4. **Privacy.** §4.4 applies to `facts` and `fingerprint`: identifiers, timestamps and fingerprints, never content.
+
+### 14.3 Checking a change entry
+
+Steps 1, 2, 4 and 5 of §10 apply, using the domain in §5.1 for the signature and `body.issued_at` for the key's validity
+window. Step 3 (the claim digest) does not apply. Step 7 applies to `policy`. The report names the kind (`"entry_kind":
+"change"`) and has no verdict.
+
+## 15. Pipelines and policy (`poaw/0.2`)
+
+### 15.1 The pipeline document
+
+A **pipeline** is a JSON document, described by [`schema/pipeline.schema.json`](schema/pipeline.schema.json), that says:
+which **connector** (a read-only connection to one destination) and target, what **triggers** it (`claim`, an agent's
+report; `watch`, the destination's own change history), which events are in scope (**filter**), which published verifier
+profile (§9.2) judges them and any **extra conditions** that narrow it (**check**), and what to do about the outcome
+(**outcomes**: a receipt, and alerts).
+
+The document follows §3: integers only, JCS-canonicalised for hashing. Its `id` and `version` are inside the document, so
+its digest binds them. Editing a pipeline creates a new `version`. A published version is never changed.
+
+### 15.2 The `policy` object
+
+```json
+"policy": { "pipeline_id": "ads-budget-changes", "pipeline_version": 3, "digest": "<base64url SHA-256>" }
+```
+
+`digest = base64url(SHA-256(JCS(pipeline document)))`, the same construction as `claim_digest` (§4.2). A receipt or change
+entry carrying a `policy` therefore names the exact rule that asked for it.
+
+A checker that is also given the pipeline document MUST check that (a) the document is valid against the pipeline schema,
+(b) `document.id` equals `policy.pipeline_id` and `document.version` equals `policy.pipeline_version`, and (c) the digest
+equals `policy.digest`. All three must hold for `policy` to be reported as passing. Without the document the checker
+reports `policy` as `"not_checked"`, which does not invalidate the receipt. The issuer need not publish the document: the
+digest lets its owner show which rule applied without disclosing it to everyone else.
+
+### 15.3 Rules that keep pipelines honest
+
+1. **Facts come only from the destination.** A pipeline document MUST NOT reference a claim anywhere. Conditions
+   name only fields of the destination's own event (`event.*`) or of the facts the profile recorded (`observed.*`), and
+   compare them to literal values. The claim says what to look for. The destination says what happened. The schema makes
+   this structural: there is no operand that can hold a claim value.
+2. **Conditions only narrow.** An extra condition can keep an event out of scope or turn a would-be `verified` into a
+   non-`verified` verdict. It can never turn a failed profile match into `verified` (§6.2 rule 1).
+3. **No user code.** A pipeline is data. It has no expressions beyond the comparisons in the schema.
+
+## 16. Changes from `poaw/0.1`
+
+`poaw/0.2` is a minor version. Every `poaw/0.1` receipt is still valid, byte for byte, and checkers MUST keep accepting it.
+Added: the optional `policy` member (§4.1, §15.2); the change entry (§14) with its own signature domain (§5.1); the pipeline
+document (§15). A receipt that uses none of these MAY keep saying `poaw/0.1`.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:poaw:schema:0.1:receipt",
-  "title": "PoAW receipt (poaw/0.1)",
+  "$id": "urn:poaw:schema:0.2:receipt",
+  "title": "PoAW receipt (poaw/0.1 and poaw/0.2)",
   "description": "Structural schema for a Proof of Agent Work receipt. Signature, inclusion and anchor checks are defined in SPEC.md and are not expressible in JSON Schema.",
   "type": "object",
   "required": ["body", "signature"],
@@ -20,6 +20,16 @@
     "keyId": { "type": "string", "pattern": "^ed25519:[A-Za-z0-9_-]{43}$" },
     "fingerprint": { "type": "string", "pattern": "^sha256:[A-Za-z0-9_-]{43}$" },
     "action": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+){2}$" },
+    "policy": {
+      "type": "object",
+      "required": ["pipeline_id", "pipeline_version", "digest"],
+      "additionalProperties": false,
+      "properties": {
+        "pipeline_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$" },
+        "pipeline_version": { "type": "integer", "minimum": 1 },
+        "digest": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" }
+      }
+    },
     "verdictValue": { "enum": ["verified", "late", "mismatch", "failed", "unverifiable"] },
     "reasonCode": {
       "enum": [
@@ -32,7 +42,7 @@
       "type": "object",
       "required": ["spec_version", "receipt_id", "issued_at", "issuer", "agent", "claim", "observation", "verdict", "trust_level"],
       "properties": {
-        "spec_version": { "const": "poaw/0.1" },
+        "spec_version": { "enum": ["poaw/0.1", "poaw/0.2"] },
         "receipt_id": { "type": "string", "minLength": 1, "maxLength": 128 },
         "issued_at": { "$ref": "#/$defs/timestamp" },
         "issuer": {
@@ -110,15 +120,24 @@
             "document": { "$ref": "#/$defs/b64url" }
           }
         },
-        "supersedes": { "type": "string" }
+        "supersedes": { "type": "string" },
+        "policy": { "$ref": "#/$defs/policy" }
       },
-      "if": { "properties": { "trust_level": { "minimum": 3 } } },
-      "then": {
-        "required": ["attestation"],
-        "properties": {
-          "observation": { "properties": { "verifier": { "required": ["id", "version", "code_hash"] } } }
+      "allOf": [
+        {
+          "if": { "properties": { "trust_level": { "minimum": 3 } } },
+          "then": {
+            "required": ["attestation"],
+            "properties": {
+              "observation": { "properties": { "verifier": { "required": ["id", "version", "code_hash"] } } }
+            }
+          }
+        },
+        {
+          "if": { "required": ["policy"] },
+          "then": { "properties": { "spec_version": { "const": "poaw/0.2" } } }
         }
-      }
+      ]
     },
     "signature": {
       "type": "object",

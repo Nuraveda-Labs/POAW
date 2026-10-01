@@ -1,0 +1,53 @@
+{
+  "check": {
+    "narrow": {
+      "field": "observed.branch",
+      "op": "eq",
+      "value": "main"
+    },
+    "profile": {
+      "id": "github.commit.push",
+      "version": "1"
+    }
+  },
+  "connector": {
+    "provider": "github",
+    "target": "example-org/example-repo"
+  },
+  "filter": {
+    "all": [
+      {
+        "field": "event.branch",
+        "op": "eq",
+        "value": "main"
+      }
+    ]
+  },
+  "id": "main-branch-pushes",
+  "name": "Every push to main",
+  "outcomes": {
+    "alerts": [
+      {
+        "channel": "email",
+        "on": [
+          "mismatch",
+          "failed",
+          "unclaimed_change"
+        ],
+        "to": "ops@example.com"
+      }
+    ],
+    "receipt": "always"
+  },
+  "schema": "pipeline/1",
+  "trigger": {
+    "on": [
+      "claim",
+      "watch"
+    ],
+    "watch": {
+      "grace_seconds": 900
+    }
+  },
+  "version": 2
+}

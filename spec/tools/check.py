@@ -2,8 +2,9 @@
 # requires-python = ">=3.11"
 # dependencies = ["cryptography>=43", "rfc8785==0.1.4", "jsonschema>=4.23", "eth-abi>=5", "eth-hash[pycryptodome]>=0.7"]
 # ///
-"""Reference checker for PoAW receipts (SPEC.md §10). Offline it checks steps 1–4. With --rpc it also checks the anchor
-against the chain (§8.4). Usage: uv run check.py <receipt.json> <keys.json> [--rpc https://sepolia.base.org]"""
+"""Reference checker for PoAW receipts and change entries (SPEC.md §10, §14). Offline it checks steps 1–4 and 7. With --rpc
+it also checks the anchor against the chain (§8.4). With --pipeline it checks the receipt's `policy` against the pipeline
+document (§15.2). Usage: uv run check.py <entry.json> <keys.json> [--rpc https://sepolia.base.org] [--pipeline pipeline.json]"""
 from __future__ import annotations
 
 import json
@@ -16,19 +17,37 @@ sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parents[2] / "core-python" / "src"))
 import poaw_core as ref  # noqa: E402
 
-SCHEMA = json.loads((Path(__file__).parents[1] / "schema" / "receipt.schema.json").read_text())
-_VALIDATOR = jsonschema.Draft202012Validator(SCHEMA)
+_SCHEMAS = Path(__file__).parents[1] / "schema"
+_VALIDATOR = jsonschema.Draft202012Validator(json.loads((_SCHEMAS / "receipt.schema.json").read_text()))
+_CHANGE_VALIDATOR = jsonschema.Draft202012Validator(json.loads((_SCHEMAS / "change.schema.json").read_text()))
+_PIPELINE_VALIDATOR = jsonschema.Draft202012Validator(json.loads((_SCHEMAS / "pipeline.schema.json").read_text()))
 
 
-def check(receipt: dict, keyset: dict, rpc_url: str | None = None) -> dict:
-    """Return a report. `valid` is true only if every check that applies passes."""
+def check_policy(policy: dict, pipeline: dict) -> bool:
+    """SPEC §15.2: the document is valid, its id and version are the policy's, and its digest is the policy's."""
+    return bool(
+        isinstance(pipeline, dict)
+        and not ref.has_float(pipeline)
+        and not list(_PIPELINE_VALIDATOR.iter_errors(pipeline))
+        and pipeline.get("id") == policy.get("pipeline_id")
+        and pipeline.get("version") == policy.get("pipeline_version")
+        and ref.pipeline_digest(pipeline) == policy.get("digest")
+    )
+
+
+def check(receipt: dict, keyset: dict, rpc_url: str | None = None, pipeline: dict | None = None) -> dict:
+    """Return a report for a receipt or a change entry. `valid` is true only if every check that applies passes."""
     report: dict = {"checks": {}}
     c = report["checks"]
 
     body = receipt.get("body", {}) if isinstance(receipt, dict) else {}
+    kind = ref.entry_kind(body)
+    is_change = kind == "change"
     version = str(body.get("spec_version", ""))
     c["spec_version"] = version.split("/")[0] == "poaw" and version.split("/")[-1].split(".")[0] == "0"
-    c["schema"] = not list(_VALIDATOR.iter_errors(receipt))
+    # §14: no entry_kind is a receipt, "change" is a change entry, anything else is not an entry this spec defines.
+    validator = _CHANGE_VALIDATOR if is_change else _VALIDATOR
+    c["schema"] = (kind is None or is_change) and not list(validator.iter_errors(receipt))
     c["integers_only"] = not ref.has_float(receipt)
 
     sig = receipt.get("signature", {}) if isinstance(receipt, dict) else {}
@@ -42,9 +61,12 @@ def check(receipt: dict, keyset: dict, rpc_url: str | None = None) -> dict:
         and (key.get("revoked_at") is None or issued < key["revoked_at"])
     )
     c["key"] = key_ok
-    c["signature"] = bool(key_ok and ref.verify_signature(ref.b64u_decode(key["public_key"]), body, sig.get("value", "")))
-    claim = body.get("claim", {})
-    c["claim_digest"] = isinstance(claim, dict) and claim.get("claim_digest") == ref.claim_digest(claim)
+    domain = ref.CHANGE_SIG_DOMAIN if is_change else ref.SIG_DOMAIN
+    c["signature"] = bool(
+        key_ok and ref.verify_signature(ref.b64u_decode(key["public_key"]), body, sig.get("value", ""), domain))
+    if not is_change:  # a change entry has no claim (§14.1)
+        claim = body.get("claim", {})
+        c["claim_digest"] = isinstance(claim, dict) and claim.get("claim_digest") == ref.claim_digest(claim)
 
     proof = receipt.get("proof")
     if proof is None:
@@ -65,19 +87,28 @@ def check(receipt: dict, keyset: dict, rpc_url: str | None = None) -> dict:
         c["anchor"] = True if a["ok"] else a["reason"]
         report["proven_by"] = a["proven_by"]
 
-    required = ("spec_version", "schema", "integers_only", "key", "signature", "claim_digest")
-    report["valid"] = all(c[k] is True for k in required) and c["inclusion"] in (True, "absent")
+    # §15.2: only present when the body carries a policy. Without the pipeline document it is "not_checked".
+    policy = body.get("policy")
+    if policy is not None:
+        c["policy"] = "not_checked" if pipeline is None else (isinstance(policy, dict) and check_policy(policy, pipeline))
+    if is_change:
+        report["entry_kind"] = "change"
+
+    required = ("spec_version", "schema", "integers_only", "key", "signature") + (() if is_change else ("claim_digest",))
+    report["valid"] = (all(c[k] is True for k in required) and c["inclusion"] in (True, "absent")
+                       and c.get("policy", True) in (True, "not_checked"))
     # §7: report the ACHIEVED level. L2 needs inclusion AND an anchor verified on-chain (--rpc); offline the ceiling is 1.
     report["achieved_trust_level"] = (2 if c["inclusion"] is True and c["anchor"] is True else 1) if report["valid"] else 0
-    report["verdict"] = body.get("verdict", {}).get("value") if report["valid"] else None
+    report["verdict"] = body.get("verdict", {}).get("value") if report["valid"] and not is_change else None
     return report
 
 
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument("receipt"); ap.add_argument("keys"); ap.add_argument("--rpc")
+    ap.add_argument("receipt"); ap.add_argument("keys"); ap.add_argument("--rpc"); ap.add_argument("--pipeline")
     args = ap.parse_args()
     receipt = json.loads(Path(args.receipt).read_text())
     keyset = json.loads(Path(args.keys).read_text())
-    print(json.dumps(check(receipt, keyset, args.rpc), indent=2))
+    pipeline = json.loads(Path(args.pipeline).read_text()) if args.pipeline else None
+    print(json.dumps(check(receipt, keyset, args.rpc, pipeline), indent=2))

@@ -161,6 +161,25 @@ def test_body_cap_413():
     assert r.status_code == 413
 
 
+def test_body_cap_413_without_content_length():
+    """#143: a chunked body has no Content-Length, so the cap must count the bytes that arrive."""
+    c, _ = client()
+
+    def chunks():
+        for _ in range(20):
+            yield b" " * (8 * 1024)
+
+    r = c.post("/v1/claims", content=chunks(), headers={"content-type": "application/json", "Authorization": "Bearer good"})
+    assert r.status_code == 413
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_small_body_still_reaches_the_app_after_the_cap():
+    c, _ = client()
+    r = c.post("/v1/claims", content=b"{}", headers={"content-type": "application/json", "Authorization": "Bearer good"})
+    assert r.status_code not in (413, 500)
+
+
 def test_docs_endpoints_are_off():
     c, _ = client()
     assert c.get("/docs").status_code == 404 and c.get("/openapi.json").status_code == 404

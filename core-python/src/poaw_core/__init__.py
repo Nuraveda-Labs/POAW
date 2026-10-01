@@ -1,4 +1,4 @@
-"""poaw_core — the one implementation of the PoAW receipt primitives (poaw/0.1).
+"""poaw_core — the one implementation of the PoAW receipt primitives (poaw/0.1 and poaw/0.2).
 
 Deliberately small and dependency-light: this is the executable form of SPEC.md §3, §5 and §8,
 Shared by the spec tools, the node and the SDK. The conformance vectors are its test suite.
@@ -14,8 +14,10 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-SPEC_VERSION = "poaw/0.1"
+SPEC_VERSION = "poaw/0.1"  # what an issuer says when it uses nothing introduced in 0.2 (SPEC §16)
+SPEC_VERSION_V02 = "poaw/0.2"  # required when a body carries `policy`, and for every change entry
 SIG_DOMAIN = b"POAW-RECEIPT-V0\n"
+CHANGE_SIG_DOMAIN = b"POAW-CHANGE-V0\n"  # §5.1: a change entry is signed under its own domain
 
 
 # --- encoding (§3) ---------------------------------------------------------------------------
@@ -57,17 +59,36 @@ def key_id(pk_raw: bytes) -> str:
     return "ed25519:" + b64u(sha256(pk_raw))
 
 
-def sign_body(sk: Ed25519PrivateKey, body: dict) -> dict:
+def sign_body(sk: Ed25519PrivateKey, body: dict, domain: bytes = SIG_DOMAIN) -> dict:
     kid = key_id(public_key_bytes(sk))
-    return {"alg": "Ed25519", "key_id": kid, "value": b64u(sk.sign(SIG_DOMAIN + jcs(body)))}
+    return {"alg": "Ed25519", "key_id": kid, "value": b64u(sk.sign(domain + jcs(body)))}
 
 
-def verify_signature(pk_raw: bytes, body: dict, sig_value: str) -> bool:
+def verify_signature(pk_raw: bytes, body: dict, sig_value: str, domain: bytes = SIG_DOMAIN) -> bool:
     try:
-        Ed25519PublicKey.from_public_bytes(pk_raw).verify(b64u_decode(sig_value), SIG_DOMAIN + jcs(body))
+        Ed25519PublicKey.from_public_bytes(pk_raw).verify(b64u_decode(sig_value), domain + jcs(body))
         return True
     except (InvalidSignature, ValueError):
         return False
+
+
+def sign_change(sk: Ed25519PrivateKey, body: dict) -> dict:
+    """Sign a change entry (SPEC §14) under its own domain, so it can never verify as a receipt."""
+    return sign_body(sk, body, CHANGE_SIG_DOMAIN)
+
+
+def verify_change_signature(pk_raw: bytes, body: dict, sig_value: str) -> bool:
+    return verify_signature(pk_raw, body, sig_value, CHANGE_SIG_DOMAIN)
+
+
+def entry_kind(body: Any) -> str | None:
+    """A body without `entry_kind` is a receipt (None). `"change"` is a change entry. Anything else is unknown."""
+    return body.get("entry_kind") if isinstance(body, dict) else None
+
+
+def pipeline_digest(pipeline: dict) -> str:
+    """SPEC §15.2: base64url(SHA-256(JCS(pipeline document))), the same construction as claim_digest."""
+    return b64u(sha256(jcs(pipeline)))
 
 
 def claim_digest(claim: dict) -> str:
@@ -76,8 +97,9 @@ def claim_digest(claim: dict) -> str:
 
 
 # --- Merkle log, RFC 6962 (§8) ---------------------------------------------------------------
-def leaf_hash(receipt: dict) -> bytes:
-    return sha256(b"\x00" + jcs({"body": receipt["body"], "signature": receipt["signature"]}))
+def leaf_hash(entry: dict) -> bytes:
+    """§8.1: the same for every kind of entry (a receipt or a change entry)."""
+    return sha256(b"\x00" + jcs({"body": entry["body"], "signature": entry["signature"]}))
 
 
 def _node(left: bytes, right: bytes) -> bytes:

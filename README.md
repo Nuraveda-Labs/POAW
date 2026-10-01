@@ -8,15 +8,15 @@ An open protocol and a **self-hostable node**. An agent says *"I pushed commit `
 GitHub itself, decides a verdict, **signs a receipt**, appends it to an **append-only Merkle log**, and anchors the
 log's root on a **public chain**. Anyone can check a receipt later — offline, without trusting whoever issued it.
 
-[![Spec: poaw/0.1](https://img.shields.io/badge/spec-poaw%2F0.1%20draft-6d28d9.svg)](spec/SPEC.md)
+[![Spec: poaw/0.2](https://img.shields.io/badge/spec-poaw%2F0.2%20draft-6d28d9.svg)](spec/SPEC.md)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE-APACHE)
 [![Node: AGPL v3](https://img.shields.io/badge/node-AGPL_v3-blue.svg)](node/LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![Built with FastAPI](https://img.shields.io/badge/built%20with-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
-[![CI](https://img.shields.io/github/actions/workflow/status/Nuraveda-Labs/qed-proof-core/ci.yml?branch=main&label=CI)](https://github.com/Nuraveda-Labs/qed-proof-core/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/Nuraveda/qed-proof-core/ci.yml?branch=main&label=CI)](https://github.com/Nuraveda/qed-proof-core/actions)
 [![Discord](https://img.shields.io/badge/Discord-community%20%26%20support-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/9yhJs3EdCx)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![Stars](https://img.shields.io/github/stars/Nuraveda-Labs/qed-proof-core?style=social)](https://github.com/Nuraveda-Labs/qed-proof-core/stargazers)
+[![Stars](https://img.shields.io/github/stars/Nuraveda/qed-proof-core?style=social)](https://github.com/Nuraveda/qed-proof-core/stargazers)
 
 **[Hosted](https://qedproof.site)** · **[Discord](https://discord.gg/9yhJs3EdCx)** · **[Spec](spec/SPEC.md)** · **[How it works](#how-it-works)** · **[Quickstart](#quickstart-self-host)** · **[Verifiers](#what-it-can-check-today)** · **[Check a receipt](#check-a-receipt-yourself)** · **[Contributing](CONTRIBUTING.md)**
 
@@ -118,7 +118,7 @@ see [CONTRIBUTING.md](CONTRIBUTING.md).
 **With Docker** (PostgreSQL + the node, on `127.0.0.1:8080`):
 
 ```bash
-git clone https://github.com/Nuraveda-Labs/qed-proof-core.git && cd qed-proof-core
+git clone https://github.com/Nuraveda/qed-proof-core.git && cd qed-proof-core
 docker compose up -d
 docker compose exec node poaw-node create-workspace --name "My team"   # prints an API key ONCE
 ```
@@ -181,7 +181,7 @@ Environment variables (full list in [`node/src/poaw_node/selfhost.py`](node/src/
 ## Repository layout
 
 ```
-spec/          the receipt spec (poaw/0.1), JSON Schema, 20 conformance vectors, the reference checker   Apache-2.0
+spec/          the receipt spec (poaw/0.2), JSON Schemas, 35 conformance vectors, the reference checker   Apache-2.0
 core-python/   poaw-core: canonical JSON, hashing, signatures, Merkle log primitives                   Apache-2.0
 node/          the node: claims API, verifiers, signing, Merkle log, anchoring, CLI, Dockerfile        AGPL-3.0
 docker-compose.yml   PostgreSQL + the node

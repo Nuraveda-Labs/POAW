@@ -16,10 +16,21 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+import asyncpg
 import poaw_core
 from poaw_node.store import with_nodes
 
 from . import eth
+
+
+# Claims the send for one tree size: a fresh row, or a retry of a FAILED one. A landed or pending row is never reset
+# (#144), and the `anchors_one_pending` unique index refuses a second pending row of any size (#147).
+CLAIM_ANCHOR_SQL = """insert into qed.anchors (tree_size, root_hash, prev_tree_size, chain, status, attempts)
+   values ($1, $2, $3, $4, 'pending', 1)
+   on conflict (tree_size) do update set status = 'pending', attempts = qed.anchors.attempts + 1,
+                                         last_error = null, created_at = now()
+   where qed.anchors.status not in ('landed', 'pending')
+   returning tree_size"""
 
 
 def log(event: str, **kw) -> None:
@@ -112,12 +123,17 @@ class Anchorer:
 
             data = eth.anchor_data(self.cfg.log_id, size, root, prev_size, prev_root, poaw_core.SPEC_VERSION)
             calldata = eth.attest_calldata(self.cfg.schema_uid, data)
-            await conn.execute(
-                """insert into qed.anchors (tree_size, root_hash, prev_tree_size, chain, status, attempts)
-                   values ($1, $2, $3, $4, 'pending', 1)
-                   on conflict (tree_size) do update set status = 'pending', attempts = qed.anchors.attempts + 1,
-                                                         last_error = null, created_at = now()""",
-                size, root, prev_size or None, self.cfg.chain)
+            # Claim the send atomically (#144, #147). Ticks can overlap (no reserved concurrency), and a session advisory
+            # lock doesn't survive the transaction pooler, so the database decides: a landed or pending row is never reset,
+            # and the `anchors_one_pending` unique index allows ONE pending row in total. A tick that loses gets no row back
+            # and sends nothing, so two transactions can never race for the same nonce.
+            try:
+                claimed = await conn.fetchval(CLAIM_ANCHOR_SQL, size, root, prev_size or None, self.cfg.chain)
+            except asyncpg.UniqueViolationError:
+                claimed = None
+            if claimed is None:
+                log("anchor.in_flight_elsewhere", tree_size=size)
+                return {"anchor": "busy"}
             try:
                 tx = await asyncio.to_thread(self.rpc.send, self.signer, self.cfg.chain_id, eth.EAS, calldata)
             except Exception as exc:

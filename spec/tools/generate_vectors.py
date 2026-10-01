@@ -2,7 +2,8 @@
 # requires-python = ">=3.11"
 # dependencies = ["cryptography>=43", "rfc8785==0.1.4", "jsonschema>=4.23"]
 # ///
-"""Generate the PoAW conformance vectors (SPEC.md §13) deterministically.
+"""Generate the PoAW conformance vectors (SPEC.md §13) deterministically. 001–020 are poaw/0.1 and must never change (a
+checker that reads them today reads them tomorrow); 021 onward cover poaw/0.2 (policy, change entries).
 
     uv run oss/spec/tools/generate_vectors.py            # write vectors/
     uv run oss/spec/tools/generate_vectors.py --check    # fail if vectors/ differs (CI)
@@ -75,13 +76,63 @@ def signed(b: dict, key: Ed25519PrivateKey = KEY_A) -> dict:  # gitleaks:allow �
     return {"body": b, "signature": ref.sign_body(key, b)}
 
 
-def build() -> list[tuple[str, str, dict, dict]]:
-    """(name, description, receipt, expected) — expected is filled from the reference checker and then
-    asserted against the intent written here, so a checker bug can't silently redefine the vectors."""
-    V: list[tuple[str, str, dict, dict]] = []
+def signed_change(b: dict, key: Ed25519PrivateKey = KEY_A) -> dict:  # gitleaks:allow — a type annotation, not a secret
+    return {"body": b, "signature": ref.sign_change(key, b)}
 
-    def add(name, desc, receipt, valid, verdict=None):
-        V.append((name, desc, receipt, {"valid": valid, "verdict": verdict if valid else None}))
+
+# A pipeline document used by the policy vectors (SPEC §15). Neutral on purpose: this file is published.
+PIPELINE = {
+    "schema": "pipeline/1", "id": "main-branch-pushes", "version": 2, "name": "Every push to main",
+    "connector": {"provider": "github", "target": "example-org/example-repo"},
+    "trigger": {"on": ["claim", "watch"], "watch": {"grace_seconds": 900}},
+    "filter": {"all": [{"field": "event.branch", "op": "eq", "value": "main"}]},
+    "check": {"profile": {"id": "github.commit.push", "version": "1"},
+              "narrow": {"field": "observed.branch", "op": "eq", "value": "main"}},
+    "outcomes": {"receipt": "always", "alerts": [{"on": ["mismatch", "failed", "unclaimed_change"], "channel": "email", "to": "ops@example.com"}]},
+}
+POLICY = {"pipeline_id": PIPELINE["id"], "pipeline_version": PIPELINE["version"], "digest": ref.pipeline_digest(PIPELINE)}
+
+
+def body02(n: int, verdict: dict, **kw) -> dict:
+    """A poaw/0.2 receipt body. `policy` (when given) is added; the version is 0.2 either way."""
+    policy = kw.pop("policy", None)
+    b = body(n, verdict, **kw)
+    b["spec_version"] = ref.SPEC_VERSION_V02
+    if policy is not None:
+        b["policy"] = policy
+    return b
+
+
+def change_body(n: int, *, kid: str = KID_A, policy: dict | None = POLICY, issued_at: str = "2026-09-25T14:30:05.000Z") -> dict:
+    b = {
+        "spec_version": ref.SPEC_VERSION_V02,
+        "entry_kind": "change",
+        "change_id": f"chg_01J8Z6Q4W3EXAMPLE{n:06d}",
+        "issued_at": issued_at,
+        "issuer": {"key_id": kid, "name": "example-issuer"},
+        "connector": "github",
+        "event": "github.commit.push",
+        "target": "example-org/example-repo",
+        "fingerprint": "0123456789abcdef0123456789abcdef01234567",
+        "seen_at": "2026-09-25T14:30:04.000Z",
+        "occurred_at": "2026-09-25T14:14:50.000Z",
+        "facts": {"branch": "main", "commit_found": True, "sha": "0123456789abcdef0123456789abcdef01234567"},
+        "watcher": {"id": "github.commit.push", "version": "1"},
+        "policy": policy,
+        "trust_level": 1,
+    }
+    if policy is None:
+        del b["policy"]
+    return b
+
+
+def build() -> list[tuple[str, str, dict, dict, dict | None]]:
+    """(name, description, entry, expected, pipeline) — expected is filled from the reference checker and then
+    asserted against the intent written here, so a checker bug can't silently redefine the vectors."""
+    V: list[tuple[str, str, dict, dict, dict | None]] = []
+
+    def add(name, desc, receipt, valid, verdict=None, pipeline=None, checks=None):
+        V.append((name, desc, receipt, {"valid": valid, "verdict": verdict if valid else None, "checks": checks or {}}, pipeline))
 
     # --- valid receipts, one per verdict --------------------------------------------------------
     add("001-valid-verified", "Signed L1 receipt, verified.", signed(body(1, {"value": "verified"})), True, "verified")
@@ -150,6 +201,61 @@ def build() -> list[tuple[str, str, dict, dict]]:
     x = with_proof(3)
     x["proof"]["leaf_index"] = 4
     add("020-wrong-leaf-index", "Correct path, wrong index.", x, False)
+
+    # === poaw/0.2 (SPEC §14–§16) ==================================================================
+    add("021-valid-0.2-without-policy", "A poaw/0.2 receipt that uses nothing new is still a plain receipt.",
+        signed(body02(21, {"value": "verified"})), True, "verified")
+    add("022-valid-policy-checked", "Receipt with a policy, checked against the pipeline document: digest, id and version agree.",
+        signed(body02(22, {"value": "verified"}, policy=POLICY)), True, "verified", pipeline=PIPELINE, checks={"policy": True})
+    add("023-valid-policy-not-checked", "Same kind of receipt, but no pipeline document is available: policy is not_checked, and the receipt stays valid.",
+        signed(body02(23, {"value": "verified"}, policy=POLICY)), True, "verified", checks={"policy": "not_checked"})
+    add("024-policy-bad-digest", "The digest is not the digest of the pipeline document (a different document was substituted).",
+        signed(body02(24, {"value": "verified"}, policy={**POLICY, "digest": ref.pipeline_digest({**PIPELINE, "name": "Something else"})})),
+        False, pipeline=PIPELINE, checks={"policy": False})
+    add("025-policy-version-mismatch", "The digest is right for the document, but the policy names a different version of it.",
+        signed(body02(25, {"value": "verified"}, policy={**POLICY, "pipeline_version": 1})), False, pipeline=PIPELINE, checks={"policy": False})
+    add("026-policy-on-0.1-body", "A policy is a 0.2 member: a body that says poaw/0.1 may not carry one (schema).",
+        signed({**body(26, {"value": "verified"}), "policy": POLICY}), False, checks={"schema": False})
+
+    # --- change entries (§14) ---------------------------------------------------------------------
+    add("027-valid-change", "A change entry: an in-scope push nobody claimed. Same log, own signature domain, no verdict.",
+        signed_change(change_body(27)), True, None, pipeline=PIPELINE, checks={"policy": True})
+    x = signed_change(change_body(28))
+    x["body"]["fingerprint"] = "ffffffffffffffffffffffffffffffffffffffff"  # altered after signing
+    add("028-change-tampered", "The change's fingerprint was altered after signing.", x, False, checks={"signature": False})
+    b = change_body(29)
+    add("029-change-signed-as-receipt", "A change body signed under the receipt domain: the signature must not verify.",
+        {"body": b, "signature": ref.sign_body(KEY_A, b)}, False, checks={"signature": False})
+    b = body02(30, {"value": "verified"})
+    add("030-receipt-signed-as-change", "A receipt signed under the change domain: the signature must not verify.",
+        {"body": b, "signature": ref.sign_change(KEY_A, b)}, False, checks={"signature": False})
+    add("031-change-without-policy", "A change entry MUST name the pipeline that was watching (schema).",
+        signed_change(change_body(31, policy=None)), False, checks={"schema": False})
+    b = change_body(32)
+    b["claim"] = body(32, {"value": "verified"})["claim"]
+    add("032-change-with-claim", "A change entry MUST NOT carry a claim (schema): there was none.", signed_change(b), False, checks={"schema": False})
+    b = body02(33, {"value": "verified"})
+    b["entry_kind"] = "banana"
+    add("033-unknown-entry-kind", "An entry_kind this spec does not define is not an entry (schema).", signed(b), False, checks={"schema": False})
+
+    # --- a log that holds both kinds (§8.1) ---------------------------------------------------------
+    mixed = [signed(body02(200, {"value": "verified"}, trust_level=2)), signed_change(change_body(201)),
+             signed(body02(202, {"value": "failed", "reason_code": "not_found"}, facts={"found": False}, trust_level=2)),
+             signed_change(change_body(203)), signed(body02(204, {"value": "verified"}, trust_level=2))]
+    mleaves = [ref.leaf_hash(e) for e in mixed]
+    mroot = ref.b64u(ref.mth(mleaves))
+
+    def mixed_proof(i: int) -> dict:
+        e = copy.deepcopy(mixed[i])
+        e["proof"] = {"log_id": ref.b64u(ref.sha256(b"example-log")), "leaf_index": i, "tree_size": len(mixed),
+                      "root_hash": mroot, "inclusion": [ref.b64u(h) for h in ref.inclusion_path(i, mleaves)]}
+        return e
+
+    add("034-change-inclusion", "A change entry proven included in a log that also holds receipts (leaf 1 of 5).",
+        mixed_proof(1), True, None, pipeline=PIPELINE, checks={"inclusion": True, "policy": True})
+    x = mixed_proof(3)
+    x["proof"]["inclusion"][0] = ref.b64u(ref.sha256(b"not a sibling"))
+    add("035-change-bad-inclusion-path", "A change entry with an altered audit path.", x, False, pipeline=PIPELINE, checks={"inclusion": False})
     return V
 
 
@@ -157,16 +263,23 @@ def main() -> int:
     vectors = build()
     files: dict[str, str] = {"keys.json": json.dumps(KEYSET, indent=2, sort_keys=True) + "\n"}
     manifest = []
-    for name, desc, receipt, intent in vectors:
-        got = check(receipt, KEYSET)
-        if got["valid"] != intent["valid"] or got["verdict"] != intent["verdict"]:
-            print(f"reference checker disagrees with intent for {name}: {got}", file=sys.stderr)
+    for name, desc, receipt, intent, pipeline in vectors:
+        got = check(receipt, KEYSET, pipeline=pipeline)
+        wrong = {k: (got["checks"].get(k), v) for k, v in intent["checks"].items() if got["checks"].get(k) != v}
+        if got["valid"] != intent["valid"] or got["verdict"] != intent["verdict"] or wrong:
+            print(f"reference checker disagrees with intent for {name}: {got} (check mismatches: {wrong})", file=sys.stderr)
             return 1
         files[f"{name}.json"] = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
-        manifest.append({"file": f"{name}.json", "description": desc, "expected": {
+        entry = {"file": f"{name}.json", "description": desc, "expected": {
             "valid": got["valid"], "verdict": got["verdict"], "achieved_trust_level": got["achieved_trust_level"],
-            "checks": got["checks"]}})
-    files["manifest.json"] = json.dumps({"spec_version": ref.SPEC_VERSION, "keyset": "keys.json", "vectors": manifest}, indent=2, sort_keys=True) + "\n"
+            "checks": got["checks"]}}
+        if got.get("entry_kind"):
+            entry["expected"]["entry_kind"] = got["entry_kind"]
+        if pipeline is not None:
+            entry["pipeline"] = "pipeline.example.json"  # the document the checker is given alongside the entry
+        manifest.append(entry)
+    files["pipeline.example.json"] = json.dumps(PIPELINE, indent=2, sort_keys=True) + "\n"
+    files["manifest.json"] = json.dumps({"spec_version": ref.SPEC_VERSION_V02, "keyset": "keys.json", "vectors": manifest}, indent=2, sort_keys=True) + "\n"
 
     if "--check" in sys.argv:
         stale = [n for n, t in files.items() if not (OUT / n).exists() or (OUT / n).read_text() != t]

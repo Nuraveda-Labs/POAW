@@ -1,0 +1,49 @@
+{
+  "body": {
+    "change_id": "chg_01J8Z6Q4W3EXAMPLE000203",
+    "connector": "github",
+    "entry_kind": "change",
+    "event": "github.commit.push",
+    "facts": {
+      "branch": "main",
+      "commit_found": true,
+      "sha": "0123456789abcdef0123456789abcdef01234567"
+    },
+    "fingerprint": "0123456789abcdef0123456789abcdef01234567",
+    "issued_at": "2026-09-25T14:30:05.000Z",
+    "issuer": {
+      "key_id": "ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+      "name": "example-issuer"
+    },
+    "occurred_at": "2026-09-25T14:14:50.000Z",
+    "policy": {
+      "digest": "PAw8v44daVcPuwnt9nQJDZeDQfgVD_dwtecjUfn4CF8",
+      "pipeline_id": "main-branch-pushes",
+      "pipeline_version": 2
+    },
+    "seen_at": "2026-09-25T14:30:04.000Z",
+    "spec_version": "poaw/0.2",
+    "target": "example-org/example-repo",
+    "trust_level": 1,
+    "watcher": {
+      "id": "github.commit.push",
+      "version": "1"
+    }
+  },
+  "proof": {
+    "inclusion": [
+      "AJ50bZaNqGz3mVOVdlF9-7-_cwbuDPcte_4lBJxfcuE",
+      "rn6XS2OhXFEIZO8EqWHl_iWzHHeJnHlSQzapAiV927g",
+      "CR6xH1U2SR4nFNhC9ov7PT1pqouj5eFxlO23rsSqokw"
+    ],
+    "leaf_index": 3,
+    "log_id": "HlunhCNxdyQpjjappYzoNs6C90gnNoxARJaJ52VMxp4",
+    "root_hash": "QAS-cNDqmVDw_rG7Q3x1zyonmycTfkemh_StVM312Es",
+    "tree_size": 5
+  },
+  "signature": {
+    "alg": "Ed25519",
+    "key_id": "ed25519:If4x36FUomFia_hUBG_SJxt77UtqvkWqWId-9H-XIbk",
+    "value": "12dbWSz95-H_zJtsVlKEFlwDnkeYvJAiML01-MqFiES4V6ZCZpB8v7KQeIxfl9q0NmVgu_EYPuRyPRMwPklzAg"
+  }
+}

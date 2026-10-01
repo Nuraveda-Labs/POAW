@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:poaw:schema:0.2:change",
+  "title": "PoAW change entry (poaw/0.2)",
+  "description": "Structural schema for a change entry: a signed log entry for an in-scope change at a destination that no claim explained (SPEC.md \u00a714). Signature, inclusion and anchor checks are defined in SPEC.md and are not expressible in JSON Schema.",
+  "type": "object",
+  "required": [
+    "body",
+    "signature"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "body": {
+      "$ref": "#/$defs/body"
+    },
+    "signature": {
+      "$ref": "#/$defs/signature"
+    },
+    "proof": {
+      "$ref": "#/$defs/proof"
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$"
+    },
+    "b64url": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "keyId": {
+      "type": "string",
+      "pattern": "^ed25519:[A-Za-z0-9_-]{43}$"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^sha256:[A-Za-z0-9_-]{43}$"
+    },
+    "action": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+){2}$"
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "pipeline_id",
+        "pipeline_version",
+        "digest"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "pipeline_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{2,63}$"
+        },
+        "pipeline_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "required": [
+        "alg",
+        "key_id",
+        "value"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "alg": {
+          "const": "Ed25519"
+        },
+        "key_id": {
+          "$ref": "#/$defs/keyId"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{86}$"
+        }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "required": [
+        "log_id",
+        "leaf_index",
+        "tree_size",
+        "root_hash",
+        "inclusion"
+      ],
+      "properties": {
+        "log_id": {
+          "$ref": "#/$defs/b64url"
+        },
+        "leaf_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tree_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "root_hash": {
+          "$ref": "#/$defs/b64url"
+        },
+        "inclusion": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/b64url"
+          }
+        },
+        "anchor": {
+          "type": "object",
+          "required": [
+            "chain",
+            "scheme",
+            "uid",
+            "tx_hash",
+            "tree_size"
+          ],
+          "properties": {
+            "chain": {
+              "type": "string"
+            },
+            "scheme": {
+              "const": "eas"
+            },
+            "uid": {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{64}$"
+            },
+            "tx_hash": {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{64}$"
+            },
+            "tree_size": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "body": {
+      "type": "object",
+      "required": [
+        "spec_version",
+        "entry_kind",
+        "change_id",
+        "issued_at",
+        "issuer",
+        "connector",
+        "event",
+        "target",
+        "fingerprint",
+        "seen_at",
+        "facts",
+        "watcher",
+        "policy",
+        "trust_level"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "claim"
+            ]
+          },
+          {
+            "required": [
+              "observation"
+            ]
+          },
+          {
+            "required": [
+              "verdict"
+            ]
+          }
+        ]
+      },
+      "properties": {
+        "spec_version": {
+          "const": "poaw/0.2"
+        },
+        "entry_kind": {
+          "const": "change"
+        },
+        "change_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "issued_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "issuer": {
+          "type": "object",
+          "required": [
+            "key_id"
+          ],
+          "properties": {
+            "key_id": {
+              "$ref": "#/$defs/keyId"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        },
+        "connector": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$"
+        },
+        "event": {
+          "$ref": "#/$defs/action"
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "fingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "seen_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "facts": {
+          "type": "object"
+        },
+        "watcher": {
+          "type": "object",
+          "required": [
+            "id",
+            "version"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "version": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "code_hash": {
+              "$ref": "#/$defs/fingerprint"
+            }
+          }
+        },
+        "policy": {
+          "$ref": "#/$defs/policy"
+        },
+        "trust_level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "attestation": {
+          "type": "object",
+          "required": [
+            "type",
+            "document"
+          ],
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "document": {
+              "$ref": "#/$defs/b64url"
+            }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "trust_level": {
+            "minimum": 3
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "attestation"
+        ],
+        "properties": {
+          "watcher": {
+            "required": [
+              "id",
+              "version",
+              "code_hash"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

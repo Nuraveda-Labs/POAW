@@ -1,15 +1,18 @@
-# Conformance vectors — poaw/0.1
+# Conformance vectors — poaw/0.1 and poaw/0.2
 
 Every conforming checker MUST produce the `expected` result in `manifest.json` for every vector,
 using `keys.json` as the issuer's key set.
 
 - `manifest.json`: one entry per vector, with `description` and `expected` (`valid`, `verdict`, `achieved_trust_level`, and per-check results)
 - `keys.json`: the issuer key set (§5.2). **The keys are the public RFC 8032 §7.1 test keys (TEST 1 and TEST 2). They are test-only.**
-- `NNN-*.json`: the receipts
+- `NNN-*.json`: the receipts and change entries
+- `pipeline.example.json`: the pipeline document (SPEC §15) that manifest entries with a `pipeline` member are checked against. A checker passes it in as the optional pipeline input; without one, `policy` is reported `not_checked`.
 
 The vectors cover a valid receipt for every verdict value, key validity windows (including a revoked key used before and after
 revocation), tampering, a wrong or unknown key, claim-digest mismatch, schema violations, non-integer numbers, an unsupported
 major version, and RFC 6962 inclusion proofs (first, middle and last leaf of an unbalanced tree, plus altered path and index).
+
+**`poaw/0.2` (021–035):** a 0.2 receipt without a policy, a policy that checks out, one with no document to check against, a wrong digest, a wrong version, a policy on a 0.1 body, change entries (valid, tampered, wrong signature domain in both directions, missing policy, carrying a claim, unknown `entry_kind`) and change entries proven included in a log that also holds receipts. Vectors 001–020 are byte-for-byte what they were under 0.1.
 
 **Not covered offline:** anchor checks (§8.4) need a blockchain RPC, and attestation (trust level ≥ 3) needs a platform root of
 trust. A receipt that claims level 2 without a verifiable anchor is reported at its *achieved* level, 1 (vector 016).

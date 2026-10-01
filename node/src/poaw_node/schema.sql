@@ -62,6 +62,7 @@ create table qed.claims (
 );
 create index claims_due on qed.claims (next_attempt_at) where state = 'queued';
 create index claims_list on qed.claims (workspace_id, created_at desc, id desc);
+create index claims_console on qed.claims (workspace_id, claimed_at desc);  -- the hosted console's history (#150)
 
 -- Append-only Merkle log (SPEC §8). leaf_index is gapless: assigned under an advisory lock.
 create table qed.log_leaves (
@@ -174,4 +175,5 @@ create table qed.anchors (
   anchored_at    timestamptz
 );
 create index anchors_landed on qed.anchors (tree_size desc) where status = 'landed';
+create unique index anchors_one_pending on qed.anchors ((status)) where status = 'pending';  -- one anchor in flight (#147)
 alter table qed.anchors enable row level security;
